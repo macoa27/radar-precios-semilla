@@ -273,8 +273,14 @@ html = html.replace("/*__DATOS__*/null", json.dumps(payload, ensure_ascii=False,
 with open(os.path.join(BASE, "dashboard.html"), "w", encoding="utf-8") as f:
     f.write(html)
 
+# Archivo chico que la pagina consulta cada pocos minutos para saber si hay
+# novedades. Lleva la cantidad de relevamientos y los ultimos cargados, asi la
+# campanita puede decir que llego y no solo que "algo cambio".
+ultimos = [{"rv": r["rv"], "marca": r["marca"], "hibrido": r["hibrido"],
+            "p": r["p"], "d": dia(r["d"])} for r in reversed(relev[-6:])]
 with open(os.path.join(BASE, "version.json"), "w", encoding="utf-8") as f:
-    json.dump({"generado": payload["meta"]["generado_iso"]}, f)
+    json.dump({"generado": payload["meta"]["generado_iso"],
+               "n_relev": len(relev), "ultimos": ultimos}, f, ensure_ascii=False)
 
 with open(HUELLA, "w", encoding="utf-8") as f:
     f.write(huella + "\n" + datetime.datetime.now().isoformat(timespec="seconds") + "\n")
