@@ -162,12 +162,14 @@ button.expand:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
 .ramp{display:flex; align-items:center; gap:7px; font-size:11px; color:var(--muted); margin-top:10px}
 .ramp .steps{display:flex}
 .ramp .steps i{width:24px; height:9px; display:block}
-.hm{border-collapse:separate; border-spacing:2px; min-width:560px}
+.hm{border-collapse:separate; border-spacing:3px; width:100%; table-layout:fixed; min-width:520px}
 .hm th{background:none; border:0; padding:4px 6px}
-.hm th.rowh.cod{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:-.01em}
-.hm th.rowh{text-align:right; font-family:"IBM Plex Sans",sans-serif; font-size:12px; text-transform:none; letter-spacing:0; color:var(--ink-2); font-weight:500; white-space:nowrap}
+.hm th.rowh.cod{font-family:"IBM Plex Mono", monospace; font-size:11.5px; letter-spacing:-.01em}
+.hm colgroup col.lab{width:154px}
+@media (max-width:620px){.hm colgroup col.lab{width:104px}}
+.hm th.rowh{text-align:right; font-family:"IBM Plex Sans",sans-serif; font-size:12.5px; text-transform:none; letter-spacing:0; color:var(--ink-2); font-weight:500; white-space:nowrap}
 .hm td{border:0; padding:0}
-.hm .cell{border-radius:4px; padding:9px 4px; text-align:center; font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-variant-numeric:tabular-nums; cursor:default}
+.hm .cell{border-radius:5px; padding:11px 4px; text-align:center; font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-variant-numeric:tabular-nums; cursor:default}
 .hm .cell.empty{background:var(--surface-2); color:var(--muted)}
 
 .alert{display:flex; gap:12px; padding:13px 15px 13px 13px; border:1px solid var(--hair); border-left-width:3px; border-radius:8px; background:var(--surface); margin-bottom:9px}
@@ -229,23 +231,20 @@ footer{margin-top:40px; padding-top:18px; border-top:1px solid var(--hair); font
       <div class="card"><div id="chartMarcas"></div></div>
     </section>
     <section style="margin-top:30px">
-      <div class="shead">
-        <h2 id="heatTit">Zona por marca</h2>
-        <div class="pills mini" id="heatDim" role="group" aria-label="Abrir el mapa por marca o por híbrido">
-          <button class="pill" data-dim="marca">Marca</button>
-          <button class="pill" data-dim="hibrido">Híbrido</button>
-        </div>
-      </div>
-      <div class="card"><div id="chartHeat"></div></div>
+      <div class="shead"><h2>Qué se paga por financiar</h2></div>
+      <div class="card"><div id="chartFin"></div></div>
     </section>
   </div>
 
   <section>
     <div class="shead">
-      <h2>Qué se paga por financiar</h2>
-      <p>Diferencia entre el precio financiado y el de contado, por marca.</p>
+      <h2 id="heatTit">Precio por zona y marca</h2>
+      <div class="pills mini" id="heatDim" role="group" aria-label="Abrir el mapa por marca o por híbrido">
+        <button class="pill" data-dim="marca">Marca</button>
+        <button class="pill" data-dim="hibrido">Híbrido</button>
+      </div>
     </div>
-    <div class="card"><div id="chartFin"></div></div>
+    <div class="card"><div id="chartHeat"></div></div>
   </section>
 
   <section>
@@ -432,8 +431,13 @@ function chartEvo(){
   const base = baseFiltro();
   if (base.length < 8) { cont.innerHTML = `<div class="empty-state">No hay suficientes operaciones para dibujar la serie con estos filtros.</div>`; return; }
 
-  const dias = [...new Set(base.map(r=>r.d))].sort();
-  const porDia = new Map(); base.forEach(r => { (porDia.get(r.d) ?? porDia.set(r.d,[]).get(r.d)).push(r); });
+  const todos = [...new Set(base.map(r=>r.d))].sort();
+  // El eje muestra solo la ventana elegida, pero la media movil se calcula con
+  // los dias previos para que el borde izquierdo no quede truncado.
+  const dias = st.win === "todo" ? todos
+    : todos.filter(d => d > shift(HOY, -st.win) && d <= HOY);
+  if (dias.length < 3) { cont.innerHTML = `<div class="empty-state">No hay suficientes días con operaciones en esta ventana. Probá ampliarla.</div>`; return; }
+
   const serie = dias.map(d => {
     const desde = shift(d,-6);
     const w = base.filter(r => r.d >= desde && r.d <= d);
@@ -459,27 +463,23 @@ function chartEvo(){
   const spanD = (new Date(dias[dias.length-1]) - new Date(dias[0])) / 864e5;
   let ticksX, fmtX;
   if (spanD <= 75) {
-    ticksX = dias.filter(d => d.slice(8)==="01" || d.slice(8)==="15");
-    if (ticksX.length < 3) ticksX = [dias[0], dias[dias.length-1]];
+    const n = Math.min(7, dias.length);
+    ticksX = Array.from({length:n}, (_,i) => dias[Math.round(i*(dias.length-1)/(n-1))]);
     fmtX = fDia;
   } else {
     const vistos = new Set(), primeros = [];
     dias.forEach(d => { const k = d.slice(0,7); if (!vistos.has(k)) { vistos.add(k); primeros.push(d); } });
     const paso = Math.ceil(primeros.length / 9);
     ticksX = primeros.filter((_,i) => i % paso === 0);
-    fmtX = spanD > 400 ? fMesAnio : fMes;
+    fmtX = spanD > 300 ? fMesAnio : fMes;
   }
 
   const areaTop = serie.map(s=>`${X(s.d).toFixed(1)},${Y(s.q3).toFixed(1)}`).join(" L");
   const areaBot = serie.slice().reverse().map(s=>`${X(s.d).toFixed(1)},${Y(s.q1).toFixed(1)}`).join(" L");
   const linea = serie.map((s,i)=>`${i?"L":"M"}${X(s.d).toFixed(1)},${Y(s.m).toFixed(1)}`).join(" ");
 
-  const winIni = st.win==="todo" ? null : shift(HOY,-st.win);
-  const dentro = d => !winIni || (d > winIni && d <= HOY);
-  const dWin = dias.filter(dentro);
-  const sombra = (st.win!=="todo" && dWin.length>1)
-    ? `<rect x="${X(dWin[0]).toFixed(1)}" y="${mt}" width="${(X(dWin[dWin.length-1])-X(dWin[0])).toFixed(1)}" height="${ih}" fill="var(--accent-soft)"></rect>` : "";
-  const hoyLn = dias.includes(HOY) || (dias[0] < HOY && HOY < dias[dias.length-1])
+  const sombra = "";
+  const hoyLn = dias[dias.length-1] > HOY && dias[0] < HOY
     ? (()=>{ const near = dias.reduce((a,b)=> Math.abs(new Date(b)-new Date(HOY)) < Math.abs(new Date(a)-new Date(HOY)) ? b : a);
         return `<line x1="${X(near).toFixed(1)}" y1="${mt}" x2="${X(near).toFixed(1)}" y2="${mt+ih}" stroke="var(--axis)" stroke-width="1" stroke-dasharray="3 3"></line>
         <text x="${(X(near)+5).toFixed(1)}" y="${mt+11}" font-size="10" fill="var(--muted)">hoy</text>`; })() : "";
@@ -489,7 +489,7 @@ function chartEvo(){
     <span><i class="line" style="background:var(--s1)"></i> Precio de mercado (móvil 7 d)</span>
     <span><i style="background:var(--s1-soft); border:1px solid var(--s1)"></i> Mitad central (P25–P75)</span>
     <span><i style="background:var(--s2); border-radius:50%"></i> Relevamientos del equipo</span>
-    ${st.win!=="todo" ? `<span><i style="background:var(--accent-soft); border:1px solid var(--accent)"></i> Ventana activa (${nWin(st.win)})</span>` : ""}
+    <span style="color:var(--muted)">· ${nWin(st.win)}, ${n0(base.filter(r=>r.d>=dias[0]&&r.d<=dias[dias.length-1]).length)} operaciones</span>
   </div>
   <svg class="chart" viewBox="0 0 ${W} ${Ht}" role="img" aria-label="Evolución del precio promedio de mercado">
     ${sombra}
@@ -690,7 +690,7 @@ function chartMarcas(){
 function chartHeat(){
   const cont = document.getElementById("chartHeat");
   const porHib = st.heatDim === "hibrido";
-  document.getElementById("heatTit").textContent = porHib ? "Zona por híbrido" : "Zona por marca";
+  document.getElementById("heatTit").textContent = porHib ? "Precio por zona e híbrido" : "Precio por zona y marca";
   document.querySelectorAll("#heatDim .pill").forEach(b =>
     b.setAttribute("aria-pressed", String(b.dataset.dim === st.heatDim)));
 
@@ -715,6 +715,7 @@ function chartHeat(){
   const vacias = filas.length*zonas.length - cel.size;
 
   cont.innerHTML = `<div style="overflow-x:auto"><table class="hm">
+    <colgroup><col class="lab">${zonas.map(()=>`<col>`).join("")}</colgroup>
     <thead><tr><th class="rowh"></th>${zonas.map(z=>`<th>${esc(z.replace("Zona ","Z"))}</th>`).join("")}</tr></thead>
     <tbody>${filas.map(f=>`<tr><th class="rowh${porHib?" cod":""}" title="${esc(porHib ? marcaDe.get(f) : f)}">${esc(f)}</th>${zonas.map(z=>{
       const arr = cel.get(f+"|"+z);
@@ -747,32 +748,40 @@ function chartFin(){
     const c = arr.filter(r=>r.cond==="Contado"), f = arr.filter(r=>r.cond==="Financiado");
     if (c.length < 4 || f.length < 4) return null;
     const pc = pond(c), pf = pond(f);
-    return {m, pc, pf, br:(pf/pc-1)*100, n:arr.length};
+    const br = (pf/pc-1)*100;
+    return {m, pc, pf, br: Math.abs(br) < 0.05 ? 0 : br, n:arr.length};
   }).filter(Boolean).sort((a,b)=> b.br - a.br);
   if (!filas.length) { cont.innerHTML = `<div class="empty-state">Hace falta contado y financiado en la misma marca para calcular la brecha. Sacá el filtro de condición.</div>`; return; }
 
-  const maxAbs = Math.max(4, Math.ceil(Math.max(...filas.map(f=>Math.abs(f.br)))));
-  const rowH = 30, W = 900, ml = 118, mr = 210, mt = 18, mb = 10;
+  const maxAbs = Math.max(3, Math.ceil(Math.max(...filas.map(f=>Math.abs(f.br)))));
+  const rowH = 34, W = 560, ml = 104, mr = 58, mt = 24, mb = 8;
   const Ht = mt + filas.length*rowH + mb, iw = W-ml-mr, cx = ml + iw/2;
   const X = v => cx + v/maxAbs*(iw/2);
 
   cont.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${Ht}" role="img" aria-label="Brecha de precio entre financiado y contado por marca">
-    <text x="${cx}" y="${mt-6}" text-anchor="middle" font-size="10" fill="var(--muted)">mismo precio</text>
-    <text x="${ml+6}" y="${mt-6}" font-size="10" fill="var(--muted)">← financiado más barato</text>
-    <text x="${W-mr-6}" y="${mt-6}" text-anchor="end" font-size="10" fill="var(--muted)">financiado más caro →</text>
+    <text x="${ml}" y="${mt-9}" font-size="9.5" fill="var(--muted)">← más barato</text>
+    <text x="${cx}" y="${mt-9}" text-anchor="middle" font-size="9.5" fill="var(--muted)">igual</text>
+    <text x="${W-mr}" y="${mt-9}" text-anchor="end" font-size="9.5" fill="var(--muted)">más caro →</text>
     <line x1="${cx}" y1="${mt}" x2="${cx}" y2="${mt+filas.length*rowH}" stroke="var(--axis)" stroke-width="1"></line>
     ${filas.map((f,i)=>{ const y = mt + i*rowH + rowH/2; const pos = f.br >= 0;
       const x0 = pos ? cx : X(f.br), w = Math.max(2, Math.abs(X(f.br)-cx));
+      // barra larga: la cifra va adentro, si no se pisa con el nombre de la marca
+      const dentro = w > 44;
+      const tx = dentro ? (pos ? X(f.br)-7 : X(f.br)+7) : (pos ? X(f.br)+7 : X(f.br)-7);
+      const anc = dentro ? (pos ? "end" : "start") : (pos ? "start" : "end");
       return `<g data-f="${i}">
         <rect x="0" y="${y-rowH/2}" width="${W}" height="${rowH}" fill="transparent"></rect>
-        <text x="${ml-10}" y="${y+4}" text-anchor="end" font-size="12" fill="var(--ink)">${esc(f.m)}</text>
+        <text x="${ml-10}" y="${y-2}" text-anchor="end" font-size="12" fill="var(--ink)">${esc(f.m)}</text>
+        <text x="${ml-10}" y="${y+10}" text-anchor="end" font-size="10" fill="var(--muted)">${nf(f.pc,0)} → ${nf(f.pf,0)}</text>
         <rect x="${x0.toFixed(1)}" y="${y-6}" width="${w.toFixed(1)}" height="12" rx="3"
               fill="${pos?"var(--div-pos)":"var(--div-neg)"}"></rect>
-        <text x="${(pos ? X(f.br)+8 : X(f.br)-8).toFixed(1)}" y="${y+4}" text-anchor="${pos?"start":"end"}"
-              font-size="12" font-weight="600" fill="var(--ink)" font-family="IBM Plex Mono, monospace">${pct(f.br)}</text>
-        <text x="${W-mr+16}" y="${y+4}" font-size="11" fill="var(--muted)" font-family="IBM Plex Mono, monospace">contado ${nf(f.pc,0)} · financiado ${nf(f.pf,0)}</text>
+        <text x="${tx.toFixed(1)}" y="${y+4}" text-anchor="${anc}"
+              font-size="11.5" font-weight="600" fill="${dentro?"#fff":"var(--ink)"}"
+              font-family="IBM Plex Mono, monospace">${pct(f.br)}</text>
       </g>`; }).join("")}
-  </svg>`;
+  </svg>
+  <p class="note">Contado → financiado, en US$/bolsa ponderado. ${nWin(st.win)[0].toUpperCase()+nWin(st.win).slice(1)}.</p>`;
+
   cont.querySelectorAll("[data-f]").forEach(gEl => {
     const f = filas[+gEl.dataset.f];
     gEl.addEventListener("mousemove", e => tipOn(e, `<b>${esc(f.m)}</b><br><span class="tl">Contado</span> ${usd(f.pc)}<br>
