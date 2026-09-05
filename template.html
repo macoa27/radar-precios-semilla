@@ -1,4 +1,11 @@
 <meta charset="utf-8">
+<script>
+try {
+  var __t = localStorage.getItem("radar_tema");
+  if (__t === "claro") document.documentElement.dataset.theme = "light";
+  else if (__t === "oscuro") document.documentElement.dataset.theme = "dark";
+} catch (e) {}
+</script>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Cg fill=%22none%22 stroke=%22%2346a05e%22 stroke-width=%222.6%22 stroke-linecap=%22round%22%3E%3Cpath d=%22M23 10.5a8.5 8.5 0 0 1 0 11%22/%3E%3Cpath d=%22M27 6.5a14 14 0 0 1 0 19%22/%3E%3C/g%3E%3Cpath d=%22M14.2 2.6c3.9 2.4 6 7.6 6 13.4s-2.3 10.4-6 10.4-6-4.6-6-10.4 2.1-11 6-13.4Z%22 fill=%22%23eda100%22/%3E%3Cg fill=%22%23b57700%22 opacity=%22.9%22%3E%3Crect x=%229.05%22 y=%225.90%22 width=%223.1%22 height=%223%22 rx=%221.4%22/%3E%3Crect x=%2212.65%22 y=%225.90%22 width=%223.1%22 height=%223%22 rx=%221.4%22/%3E%3Crect x=%2216.25%22 y=%225.90%22 width=%223.1%22 height=%223%22 rx=%221.4%22/%3E%3Crect x=%2210.85%22 y=%229.90%22 width=%223.1%22 height=%223%22 rx=%221.4%22/%3E%3Crect x=%2214.45%22 y=%229.90%22 width=%223.1%22 height=%223%22 rx=%221.4%22/%3E%3Crect x=%229.05%22 y=%2213.90%22 width=%223.1%22 height=%223%22 rx=%221.4%22/%3E%3Crect x=%2212.65%22 y=%2213.90%22 width=%223.1%22 height=%223%22 rx=%221.4%22/%3E%3Crect x=%2216.25%22 y=%2213.90%22 width=%223.1%22 height=%223%22 rx=%221.4%22/%3E%3Crect x=%2210.85%22 y=%2217.90%22 width=%223.1%22 height=%223%22 rx=%221.4%22/%3E%3Crect x=%2214.45%22 y=%2217.90%22 width=%223.1%22 height=%223%22 rx=%221.4%22/%3E%3Crect x=%229.05%22 y=%2221.90%22 width=%223.1%22 height=%223%22 rx=%221.4%22/%3E%3Crect x=%2212.65%22 y=%2221.90%22 width=%223.1%22 height=%223%22 rx=%221.4%22/%3E%3Crect x=%2216.25%22 y=%2221.90%22 width=%223.1%22 height=%223%22 rx=%221.4%22/%3E%3C/g%3E%3C/svg%3E">
 <title>Radar de Precios de Semilla</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -95,6 +102,7 @@ input[type="date"]:focus-visible{outline:2px solid var(--accent); outline-offset
 .hoy-btn:hover{border-color:var(--accent); color:var(--accent)}
 .hoy-btn:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
 .hm-row{display:flex; align-items:flex-start; gap:12px; justify-content:flex-end}
+.hm-ctrl{display:flex; align-items:center; gap:8px; flex-shrink:0}
 .campana-wrap{position:relative; flex-shrink:0}
 .campana{position:relative; width:34px; height:34px; border-radius:8px; cursor:pointer;
   background:var(--surface-2); border:1px solid var(--hair); color:var(--muted);
@@ -256,6 +264,12 @@ footer{margin-top:40px; padding-top:18px; border-top:1px solid var(--hair); font
     <div class="head-meta">
       <div class="hm-row">
         <div id="headMeta"></div>
+        <div class="hm-ctrl">
+        <div class="pills mini" id="tema" role="group" aria-label="Tema de la página">
+          <button class="pill" data-tema="auto">Auto</button>
+          <button class="pill" data-tema="claro">Claro</button>
+          <button class="pill" data-tema="oscuro">Oscuro</button>
+        </div>
         <div class="campana-wrap">
           <button class="campana" id="campana" aria-label="Novedades" aria-expanded="false" aria-haspopup="true">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -266,6 +280,7 @@ footer{margin-top:40px; padding-top:18px; border-top:1px solid var(--hair); font
             <span class="globo" id="globo" aria-hidden="true"></span>
           </button>
           <div class="panel" id="panelNov" role="dialog" aria-label="Novedades" hidden></div>
+        </div>
         </div>
       </div>
     </div>
@@ -1006,6 +1021,27 @@ function render(){
   tablaRv(); tablaRelev();
 }
 pintarFijos(); render();
+
+/* ---------------- tema claro / oscuro ----------------
+   "Auto" es no poner nada y dejar que mande prefers-color-scheme; los otros dos
+   estampan data-theme en la raiz, que es lo que leen los bloques de tokens.
+   La eleccion queda en este navegador; si no se puede guardar, igual funciona
+   para la sesion. */
+const btnsTema = document.querySelectorAll("#tema .pill");
+const leerTema = () => { try { return localStorage.getItem("radar_tema") || "auto"; } catch (e) { return "auto"; } };
+const marcarTema = t => btnsTema.forEach(b => b.setAttribute("aria-pressed", String(b.dataset.tema === t)));
+
+function aplicarTema(t){
+  const r = document.documentElement;
+  if (t === "claro") r.dataset.theme = "light";
+  else if (t === "oscuro") r.dataset.theme = "dark";
+  else delete r.dataset.theme;
+  marcarTema(t);
+  try { t === "auto" ? localStorage.removeItem("radar_tema") : localStorage.setItem("radar_tema", t); } catch (e) {}
+}
+
+marcarTema(leerTema());   // en la carga el estampado ya lo hizo el script de arriba
+btnsTema.forEach(b => b.onclick = () => aplicarTema(b.dataset.tema));
 
 /* ---------------- novedades ----------------
    La campanita esta siempre en el encabezado: apagada mientras estas viendo los
