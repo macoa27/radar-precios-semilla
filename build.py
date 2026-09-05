@@ -245,6 +245,7 @@ def dia(x):
 payload = {
     "meta": {
         "generado": datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "generado_iso": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
         "hoy": dia(HOY),
         "sheet": f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit",
         "hist_desde": dia(min(r["d"] for r in hist)),

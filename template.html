@@ -83,6 +83,27 @@ select:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
 .pill[aria-pressed="true"]{background:var(--accent); color:#fff; font-weight:600}
 :root[data-theme="dark"] .pill[aria-pressed="true"], :root:not([data-theme="light"]) .pill[aria-pressed="true"]{color:#0d0f0c}
 .pill:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+input[type="date"]{
+  font:inherit; font-size:12.5px; color:var(--ink); background:var(--surface-2);
+  border:1px solid var(--hair); border-radius:5px; padding:4px 8px; cursor:pointer;
+}
+input[type="date"]:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+.hoy-btn{font:inherit; font-size:11.5px; background:none; border:1px solid var(--hair); border-radius:5px;
+  color:var(--ink-2); padding:4px 9px; cursor:pointer}
+.hoy-btn:hover{border-color:var(--accent); color:var(--accent)}
+.hoy-btn:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+.aviso{display:flex; gap:11px; align-items:flex-start; padding:11px 14px; border-radius:8px;
+  border:1px solid var(--hair); border-left:3px solid var(--warn); background:var(--surface); margin-bottom:18px}
+.aviso.ok{border-left-color:var(--good)}
+.aviso .ic{font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:12px; color:var(--warn); flex-shrink:0; margin-top:1px}
+.aviso.ok .ic{color:var(--good)}
+.aviso div{font-size:12.5px; color:var(--ink-2)}
+.aviso b{color:var(--ink); font-weight:600}
+.aviso code{font-family:"IBM Plex Mono",monospace; font-size:11.5px; background:var(--surface-2);
+  border:1px solid var(--hair); border-radius:4px; padding:1px 5px}
+.hm th.zh{font-family:"IBM Plex Sans",sans-serif; font-size:11px; text-transform:none;
+  letter-spacing:.01em; color:var(--muted); font-weight:500}
+.hm th.rowh .mk{color:var(--muted); font-family:"IBM Plex Sans",sans-serif; font-size:11px; font-weight:400}
 .reset{margin-left:auto; font:inherit; font-size:12px; background:none; border:0; color:var(--accent); cursor:pointer; text-decoration:underline; text-underline-offset:3px}
 
 /* ---------- bloques ---------- */
@@ -165,8 +186,7 @@ button.expand:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
 .hm{border-collapse:separate; border-spacing:3px; width:100%; table-layout:fixed; min-width:520px}
 .hm th{background:none; border:0; padding:4px 6px}
 .hm th.rowh.cod{font-family:"IBM Plex Mono", monospace; font-size:11.5px; letter-spacing:-.01em}
-.hm colgroup col.lab{width:154px}
-@media (max-width:620px){.hm colgroup col.lab{width:104px}}
+@media (max-width:620px){.hm colgroup col.lab{width:104px !important}}
 .hm th.rowh{text-align:right; font-family:"IBM Plex Sans",sans-serif; font-size:12.5px; text-transform:none; letter-spacing:0; color:var(--ink-2); font-weight:500; white-space:nowrap}
 .hm td{border:0; padding:0}
 .hm .cell{border-radius:5px; padding:11px 4px; text-align:center; font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-variant-numeric:tabular-nums; cursor:default}
@@ -199,6 +219,7 @@ footer{margin-top:40px; padding-top:18px; border-top:1px solid var(--hair); font
 </header>
 
 <div class="wrap">
+  <div id="aviso"></div>
   <section id="secKpis" style="margin-top:0"></section>
 
   <section>
@@ -258,6 +279,14 @@ footer{margin-top:40px; padding-top:18px; border-top:1px solid var(--hair); font
 
   <section>
     <div class="shead">
+      <h2>Dónde cayó cada relevamiento</h2>
+      <p id="pctLead"></p>
+    </div>
+    <div class="card"><div id="chartPct"></div></div>
+  </section>
+
+  <section>
+    <div class="shead">
       <h2>Últimos relevamientos</h2>
       <p>Cada fila es un precio informado por un RV, comparado contra el histórico de los 30 días previos a esa fecha de negocio.</p>
     </div>
@@ -311,12 +340,12 @@ const uniq = (arr, k) => [...new Set(arr.map(k))].sort();
 const nWin = w => w === "todo" ? "toda la serie" : w === 365 ? "últimos 12 meses" : "últimos " + w + " días";
 
 /* ---------------- estado ---------------- */
-const st = {region:"", marca:"", cond:"", win:30, heatDim:"marca"};
+const st = {region:"", marca:"", cond:"", win:30, heatDim:"marca", hasta:HOY};
 const baseFiltro = () => H.filter(r =>
   (!st.region || r.region===st.region) && (!st.marca || r.marca===st.marca) && (!st.cond || r.cond===st.cond));
-const enVentana = (rs, win, hasta=HOY) => win==="todo" ? rs
+const enVentana = (rs, win, hasta=st.hasta) => win==="todo" ? rs.filter(r => r.d <= hasta)
   : rs.filter(r => r.d > shift(hasta, -win) && r.d <= hasta);
-const relevFiltro = () => R.filter(r =>
+const relevFiltro = () => R.filter(r => r.d <= st.hasta &&
   (!st.region || r.region===st.region) && (!st.marca || r.marca===st.marca) && (!st.cond || r.cond===st.cond));
 const relevOk = () => relevFiltro().filter(r => r.ok);   // sin los precios fuera de rango
 
@@ -344,16 +373,23 @@ function pintarFiltros(){
     sel("fMarca","Marca", uniq(H, r=>r.marca), st.marca, "Todas") +
     sel("fCond","Condición", uniq(H, r=>r.cond), st.cond, "Ambas") +
     `<div class="fgroup"><span class="flabel">Ventana</span><div class="pills" role="group" aria-label="Ventana de tiempo">
-      ${[[30,"30 d"],[90,"90 d"],[365,"12 m"],["todo","Todo"]].map(([v,l])=>
+      ${[[7,"7 d"],[15,"15 d"],[30,"30 d"],[90,"90 d"],[365,"12 m"],["todo","Todo"]].map(([v,l])=>
         `<button class="pill" data-win="${v}" aria-pressed="${String(st.win)===String(v)}">${l}</button>`).join("")}
     </div></div>` +
+    `<div class="fgroup"><label class="flabel" for="fHasta">Al día</label>
+      <input type="date" id="fHasta" value="${st.hasta}" min="${D.meta.hist_desde}" max="${D.meta.hist_hasta}">
+      ${st.hasta !== HOY ? `<button class="hoy-btn" id="fHoy">Volver a hoy</button>` : ""}</div>` +
     `<button class="reset" id="fReset">Limpiar filtros</button>`;
   f.querySelector("#fRegion").onchange = e => { st.region = e.target.value; render(); };
   f.querySelector("#fMarca").onchange  = e => { st.marca  = e.target.value; render(); };
   f.querySelector("#fCond").onchange   = e => { st.cond   = e.target.value; render(); };
   f.querySelectorAll(".pill").forEach(b => b.onclick = () => {
     st.win = b.dataset.win === "todo" ? "todo" : +b.dataset.win; render(); });
-  f.querySelector("#fReset").onclick = () => { st.region=st.marca=st.cond=""; st.win=30; render(); };
+  f.querySelector("#fHasta").onchange = e => { if (e.target.value) { st.hasta = e.target.value; render(); } };
+  const bHoy = f.querySelector("#fHoy");
+  if (bHoy) bHoy.onclick = () => { st.hasta = HOY; render(); };
+  f.querySelector("#fReset").onclick = () => {
+    st.region=st.marca=st.cond=""; st.win=30; st.hasta=HOY; render(); };
 }
 
 /* ---------------- KPIs ---------------- */
@@ -361,7 +397,7 @@ function pintarKpis(){
   const base = baseFiltro();
   const act = enVentana(base, st.win);
   const win = st.win === "todo" ? null : st.win;
-  const prev = win ? base.filter(r => r.d > shift(HOY, -2*win) && r.d <= shift(HOY, -win)) : [];
+  const prev = win ? base.filter(r => r.d > shift(st.hasta, -2*win) && r.d <= shift(st.hasta, -win)) : [];
   const diasPrev = new Set(prev.map(r=>r.d)).size;
 
   const pAct = pond(act), pPrev = pond(prev);
@@ -377,10 +413,10 @@ function pintarKpis(){
   const descartados = todos.length - rel.length;
   const rvsAct = new Set(rel.map(r=>r.rv)).size;
   const fuera = rel.filter(r => r.senal === "desvio");
-  const ultimos7 = rel.filter(r => r.d > shift(HOY,-7)).length;
+  const ultimos7 = rel.filter(r => r.d > shift(st.hasta,-7)).length;
 
   // mismo periodo, un anio antes
-  const desdeA = shift(HOY, -(win||365)), aA = shift(desdeA,-365), bA = shift(HOY,-365);
+  const desdeA = shift(st.hasta, -(win||365)), aA = shift(desdeA,-365), bA = shift(st.hasta,-365);
   const anioAnt = base.filter(r => r.d > aA && r.d <= bA);
   const pAnio = pond(anioAnt);
   const dlA = anioAnt.length >= 20 && pAct && pAnio ? (pAct/pAnio - 1) * 100 : null;
@@ -414,7 +450,7 @@ function pintarKpis(){
     <div class="kpi">
       <span class="k-lab">Relevamientos del equipo</span>
       <span class="k-val">${rel.length}</span>
-      <span class="k-note">${rvsAct} RV activos de ${D.meta.n_rv} · ${ultimos7} en los últimos 7 días${
+      <span class="k-note">${rvsAct} RV activos de ${D.meta.n_rv} · ${ultimos7} en los 7 días previos${
         descartados ? ` · ${descartados} descartado${descartados>1?"s":""} por precio inválido` : ""}</span>
     </div>
     <div class="kpi">
@@ -434,8 +470,8 @@ function chartEvo(){
   const todos = [...new Set(base.map(r=>r.d))].sort();
   // El eje muestra solo la ventana elegida, pero la media movil se calcula con
   // los dias previos para que el borde izquierdo no quede truncado.
-  const dias = st.win === "todo" ? todos
-    : todos.filter(d => d > shift(HOY, -st.win) && d <= HOY);
+  const dias = st.win === "todo" ? todos.filter(d => d <= st.hasta)
+    : todos.filter(d => d > shift(st.hasta, -st.win) && d <= st.hasta);
   if (dias.length < 3) { cont.innerHTML = `<div class="empty-state">No hay suficientes días con operaciones en esta ventana. Probá ampliarla.</div>`; return; }
 
   const serie = dias.map(d => {
@@ -479,7 +515,7 @@ function chartEvo(){
   const linea = serie.map((s,i)=>`${i?"L":"M"}${X(s.d).toFixed(1)},${Y(s.m).toFixed(1)}`).join(" ");
 
   const sombra = "";
-  const hoyLn = dias[dias.length-1] > HOY && dias[0] < HOY
+  const hoyLn = (dias[dias.length-1] > HOY && dias[0] < HOY)
     ? (()=>{ const near = dias.reduce((a,b)=> Math.abs(new Date(b)-new Date(HOY)) < Math.abs(new Date(a)-new Date(HOY)) ? b : a);
         return `<line x1="${X(near).toFixed(1)}" y1="${mt}" x2="${X(near).toFixed(1)}" y2="${mt+ih}" stroke="var(--axis)" stroke-width="1" stroke-dasharray="3 3"></line>
         <text x="${(X(near)+5).toFixed(1)}" y="${mt+11}" font-size="10" fill="var(--muted)">hoy</text>`; })() : "";
@@ -715,9 +751,9 @@ function chartHeat(){
   const vacias = filas.length*zonas.length - cel.size;
 
   cont.innerHTML = `<div style="overflow-x:auto"><table class="hm">
-    <colgroup><col class="lab">${zonas.map(()=>`<col>`).join("")}</colgroup>
-    <thead><tr><th class="rowh"></th>${zonas.map(z=>`<th>${esc(z.replace("Zona ","Z"))}</th>`).join("")}</tr></thead>
-    <tbody>${filas.map(f=>`<tr><th class="rowh${porHib?" cod":""}" title="${esc(porHib ? marcaDe.get(f) : f)}">${esc(f)}</th>${zonas.map(z=>{
+    <colgroup><col class="lab" style="width:${porHib?218:158}px">${zonas.map(()=>`<col>`).join("")}</colgroup>
+    <thead><tr><th class="rowh"></th>${zonas.map(z=>`<th class="zh">${esc(z)}</th>`).join("")}</tr></thead>
+    <tbody>${filas.map(f=>`<tr><th class="rowh${porHib?" cod":""}">${porHib?`<span class="mk">${esc(marcaDe.get(f))}</span> `:""}${esc(f)}</th>${zonas.map(z=>{
       const arr = cel.get(f+"|"+z);
       if (!arr) return `<td><div class="cell empty">·</div></td>`;
       const v = pond(arr), st2 = paso(v);
@@ -790,6 +826,82 @@ function chartFin(){
   });
 }
 
+/* ---------------- percentil de cada relevamiento ---------------- */
+// El criterio estricto (region+zona+marca+hibrido+condicion a 30 dias) deja 1 o 2
+// antecedentes. Contra la distribucion del propio hibrido a 90 dias hay decenas,
+// asi que la posicion relativa es mucho mas solida que el desvio contra la mediana.
+function conPercentil(){
+  return relevOk().map(r => {
+    const desde = shift(r.d, -90);
+    const ref = H.filter(h => h.hibrido===r.hibrido && h.d>=desde && h.d<=r.d).map(h=>h.p).sort((a,b)=>a-b);
+    if (ref.length < 20) return {...r, pct:null, nref:ref.length};
+    return {...r, pct: ref.filter(x => x < r.p).length / ref.length * 100, nref: ref.length};
+  });
+}
+
+function chartPct(){
+  const cont = document.getElementById("chartPct"), lead = document.getElementById("pctLead");
+  const todas = conPercentil();
+  const filas = todas.filter(r => r.pct != null).sort((a,b) => b.pct - a.pct);
+  const cortos = todas.length - filas.length;
+  if (filas.length < 2){
+    cont.innerHTML = `<div class="empty-state">Todavía no hay híbridos con al menos 20 antecedentes en los 90 días previos al relevamiento.</div>`;
+    lead.textContent = "Cada relevamiento contra la distribución de precios de su propio híbrido.";
+    return;
+  }
+  const mediana = cuantil(filas.map(f=>f.pct).sort((a,b)=>a-b), .5);
+  const altos = filas.filter(f=>f.pct > 75).length, bajos = filas.filter(f=>f.pct < 25).length;
+  const nmin = Math.min(...filas.map(f=>f.nref)), nmax = Math.max(...filas.map(f=>f.nref));
+  const estr = filas.map(f=>f.niveles[0]);
+  lead.innerHTML = `Cada precio contra la distribución de su propio híbrido en los 90 días previos: entre
+    <b style="color:var(--ink)">${nmin} y ${nmax} antecedentes</b>, contra ${Math.min(...estr)} a ${Math.max(...estr)}
+    del criterio estricto. Percentil mediano del equipo:
+    <b style="color:var(--ink)">${nf(mediana,0)}</b>, con ${altos} relevamiento${altos===1?"":"s"}
+    por encima del P75 y ${bajos} por debajo del P25.`;
+
+  const rowH = 21, W = 900, ml = 250, mr = 62, mt = 38, mb = 24;
+  const Ht = mt + filas.length*rowH + mb, iw = W-ml-mr;
+  const X = v => ml + v/100*iw;
+  const ticks = [0,25,50,75,100];
+  const color = p => p > 75 ? "var(--div-pos)" : p < 25 ? "var(--div-neg)" : "var(--muted)";
+
+  cont.innerHTML = `
+  <div class="legend">
+    <span><i style="background:var(--div-neg); border-radius:50%"></i> Por debajo del P25</span>
+    <span><i style="background:var(--muted); border-radius:50%"></i> En la mitad central</span>
+    <span><i style="background:var(--div-pos); border-radius:50%"></i> Por encima del P75</span>
+  </div>
+  <svg class="chart" viewBox="0 0 ${W} ${Ht}" role="img" aria-label="Percentil de mercado de cada relevamiento">
+    <text x="0" y="13" font-size="9.5" fill="var(--muted)" letter-spacing="1.1">RV E HÍBRIDO</text>
+    <text x="${ml}" y="13" font-size="9.5" fill="var(--muted)" letter-spacing="1.1">PERCENTIL DEL MERCADO</text>
+    <rect x="${X(25).toFixed(1)}" y="${mt-8}" width="${(X(75)-X(25)).toFixed(1)}" height="${filas.length*rowH+8}" fill="var(--s1-soft)"></rect>
+    ${ticks.map(v=>`<line x1="${X(v).toFixed(1)}" y1="${mt-8}" x2="${X(v).toFixed(1)}" y2="${mt+filas.length*rowH}" stroke="${v===50?"var(--axis)":"var(--grid)"}" stroke-width="1"></line>
+      <text x="${X(v).toFixed(1)}" y="${mt-13}" text-anchor="middle" font-size="10.5" fill="var(--muted)">${v===0?"más barato":v===100?"más caro":"P"+v}</text>`).join("")}
+    ${filas.map((f,i)=>{ const y = mt + i*rowH + rowH/2;
+      return `<g data-p="${i}" style="cursor:default">
+        <rect x="0" y="${y-rowH/2}" width="${W}" height="${rowH}" fill="transparent"></rect>
+        <text x="0" y="${y+3.5}" font-size="10.5" fill="var(--muted)">${esc(f.rv)}</text>
+        <text x="${ml-14}" y="${y+3.5}" text-anchor="end" font-size="11.5" fill="var(--ink-2)" font-family="IBM Plex Mono, monospace">${esc(f.hibrido)}</text>
+        <circle cx="${X(f.pct).toFixed(1)}" cy="${y}" r="5" fill="${color(f.pct)}" stroke="var(--surface)" stroke-width="1.5"></circle>
+        <text x="${W-mr+10}" y="${y+3.5}" font-size="11" fill="var(--ink-2)" font-family="IBM Plex Mono, monospace">${nf(f.pct,0)}</text>
+      </g>`; }).join("")}
+  </svg>
+  <p class="note"><b>Cómo leerlo.</b> Un punto en el P90 quiere decir que ese precio fue más alto que el 90% de las
+    operaciones del mismo híbrido en los 90 días previos. La banda celeste es la mitad central del mercado: adentro
+    es un precio corriente, afuera merece una llamada.${cortos ? ` ${cortos} relevamiento${cortos===1?"":"s"} sin muestra suficiente quedó afuera.` : ""}</p>`;
+
+  cont.querySelectorAll("[data-p]").forEach(g => {
+    const f = filas[+g.dataset.p];
+    g.addEventListener("mousemove", e => tipOn(e,
+      `<b>${esc(f.hibrido)}</b> <span class="tl">${esc(f.marca)}</span><br>
+       ${esc(f.rv)} · ${esc(f.zona)} · ${esc(f.cond)}<br>
+       <span class="tl">Relevó</span> <b>${usd(f.p)}</b> el ${fFecha(f.d)}<br>
+       <span class="tl">Percentil</span> <b>${nf(f.pct,0)}</b> <span class="tl">sobre ${f.nref} antecedentes del híbrido</span><br>
+       <span class="tl">Criterio estricto: ${f.niveles[0]} comparable${f.niveles[0]===1?"":"s"}</span>`));
+    g.addEventListener("mouseleave", tipOff);
+  });
+}
+
 /* ---------------- tabla: RVs ---------------- */
 function tablaRv(){
   const rel = relevOk();
@@ -839,12 +951,13 @@ function tablaRv(){
 const ETIQ = {alineado:"En línea", atencion:"Atención", desvio:"Desvío relevante",
               sin_datos:"Sin comparables", invalido:"Dato inválido"};
 function tablaRelev(){
+  const pctDe = new Map(conPercentil().map(r => [r.ts + r.hibrido + r.p, r.pct]));
   const rel = relevFiltro().slice().sort((a,b)=> a.ts < b.ts ? 1 : -1);
   const t = document.getElementById("tblRelev");
   if (!rel.length) { t.innerHTML = `<tbody><tr><td class="empty-state">Ningún relevamiento con estos filtros.</td></tr></tbody>`; return; }
   t.innerHTML = `
     <thead><tr><th>Fecha</th><th>RV / zona</th><th>Híbrido</th><th>Cond.</th>
-      <th class="r">Relevado</th><th class="r">Referencia</th><th class="r">Desvío</th><th>Comp.</th><th>Señal</th><th></th></tr></thead>
+      <th class="r">Relevado</th><th class="r">Referencia</th><th class="r">Desvío</th><th class="r">Percentil</th><th>Comp.</th><th>Señal</th><th></th></tr></thead>
     <tbody>${rel.map((r,i)=>`
       <tr class="${r.ok?"":"invalida"}">
         <td class="dim nowrap">${fFecha(r.d)}</td>
@@ -854,11 +967,14 @@ function tablaRelev(){
         <td class="r mono" style="font-weight:600">${usd(r.p)}</td>
         <td class="r mono dim">${r.med!=null?usd(r.med):(r.ok?"—":"fuera de rango")}</td>
         <td class="r mono" style="color:${r.dif==null?"var(--muted)":Math.abs(r.dif)>7?"var(--crit)":Math.abs(r.dif)>3?"var(--ink)":"var(--good)"}; font-weight:600">${r.dif!=null?pct(r.dif):"—"}</td>
+        <td class="r mono">${(()=>{ const p = pctDe.get(r.ts + r.hibrido + r.p);
+          return p==null ? `<span class="dim">—</span>`
+            : `<span style="color:${p>75?"var(--div-pos)":p<25?"var(--div-neg)":"var(--ink-2)"}">P${nf(p,0)}</span>`; })()}</td>
         <td class="num" title="${esc(r.criterio)}">${r.n}</td>
         <td><span class="sig ${r.senal}"><i></i>${ETIQ[r.senal]}</span></td>
         <td>${r.interp ? `<button class="expand" data-i="${i}" aria-expanded="false">Lectura IA</button>` : `<span class="dim" style="font-size:11px">${r.ok?"sin texto":"no se analiza"}</span>`}</td>
       </tr>
-      ${r.interp ? `<tr class="exp-row" id="exp-${i}" hidden><td colspan="10"><div class="exp-in">
+      ${r.interp ? `<tr class="exp-row" id="exp-${i}" hidden><td colspan="11"><div class="exp-in">
         <b>Interpretación generada para este negocio</b><br>${esc(r.interp)}</div></td></tr>` : ""}
     `).join("")}</tbody>`;
   t.querySelectorAll(".expand").forEach(b => b.onclick = () => {
@@ -890,13 +1006,38 @@ function pintarFijos(){
   document.getElementById("footMeta").textContent =
     `Histórico del ${fFecha(D.meta.hist_desde)} al ${fFecha(D.meta.hist_hasta)} · datos leídos el ${D.meta.generado}`;
   document.getElementById("lnkSheet").href = D.meta.sheet;
+  pintarAviso();
   document.querySelectorAll("#heatDim .pill").forEach(b =>
     b.onclick = () => { st.heatDim = b.dataset.dim; chartHeat(); });
 }
 
+/* ---------------- aviso de antigüedad de los datos ---------------- */
+function pintarAviso(){
+  const el = document.getElementById("aviso");
+  const t = D.meta.generado_iso ? new Date(D.meta.generado_iso) : null;
+  if (!t || isNaN(t)) { el.innerHTML = ""; return; }
+  const hs = (Date.now() - t.getTime()) / 36e5;
+  const cuando = hs < 1 ? "hace menos de una hora"
+    : hs < 24 ? `hace ${Math.round(hs)} ${Math.round(hs)===1?"hora":"horas"}`
+    : `hace ${Math.round(hs/24)} ${Math.round(hs/24)===1?"día":"días"}`;
+
+  if (hs < 12){
+    el.innerHTML = `<div class="aviso ok"><span class="ic">✓</span><div>
+      Sheet leído <b>${cuando}</b> (${esc(D.meta.generado)}). Los ${n0(D.meta.n_relev)} relevamientos
+      y las ${n0(D.meta.n_hist)} operaciones de histórico son de esa lectura.</div></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="aviso"><span class="ic">!</span><div>
+    <b>Estos datos se leyeron ${cuando}</b>, el ${esc(D.meta.generado)}. Si el equipo cargó relevamientos
+    desde entonces, todavía no están acá. Para traerlos, corré
+    <code>python3 build.py</code> en <code>dashboard-precios</code> y volvé a publicar el dashboard.
+    <a href="${esc(D.meta.sheet)}" target="_blank" rel="noopener">Ver el sheet</a>.</div></div>`;
+}
+
 /* ---------------- render ---------------- */
 function render(){
-  pintarFiltros(); pintarKpis(); chartEvo(); chartYoY(); chartDisp(); chartMarcas(); chartHeat(); chartFin(); tablaRv(); tablaRelev();
+  pintarFiltros(); pintarKpis(); chartEvo(); chartYoY(); chartDisp(); chartMarcas(); chartHeat(); chartFin();
+  tablaRv(); chartPct(); tablaRelev();
 }
 pintarFijos(); render();
 </script>
