@@ -279,14 +279,6 @@ footer{margin-top:40px; padding-top:18px; border-top:1px solid var(--hair); font
 
   <section>
     <div class="shead">
-      <h2>Dónde cayó cada relevamiento</h2>
-      <p id="pctLead"></p>
-    </div>
-    <div class="card"><div id="chartPct"></div></div>
-  </section>
-
-  <section>
-    <div class="shead">
       <h2>Últimos relevamientos</h2>
       <p>Cada fila es un precio informado por un RV, comparado contra el histórico de los 30 días previos a esa fecha de negocio.</p>
     </div>
@@ -701,7 +693,6 @@ function chartMarcas(){
   cont.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${Ht}" role="img" aria-label="Precio promedio ponderado por marca">
     ${ticks.map(v=>`<line x1="${X(v).toFixed(1)}" y1="${mt}" x2="${X(v).toFixed(1)}" y2="${mt+filas.length*rowH}" stroke="var(--grid)" stroke-width="1"></line>
       <text x="${X(v).toFixed(1)}" y="${Ht-8}" text-anchor="middle" font-size="10" fill="var(--muted)">${n0(v)}</text>`).join("")}
-    <text x="${ml}" y="${Ht-8}" text-anchor="middle" font-size="10" fill="var(--muted)">0</text>
     ${filas.map((f,i)=>{ const y = mt + i*rowH + rowH/2;
       return `<g data-m="${i}">
         <rect x="0" y="${y-rowH/2}" width="${W}" height="${rowH}" fill="transparent"></rect>
@@ -826,82 +817,6 @@ function chartFin(){
   });
 }
 
-/* ---------------- percentil de cada relevamiento ---------------- */
-// El criterio estricto (region+zona+marca+hibrido+condicion a 30 dias) deja 1 o 2
-// antecedentes. Contra la distribucion del propio hibrido a 90 dias hay decenas,
-// asi que la posicion relativa es mucho mas solida que el desvio contra la mediana.
-function conPercentil(){
-  return relevOk().map(r => {
-    const desde = shift(r.d, -90);
-    const ref = H.filter(h => h.hibrido===r.hibrido && h.d>=desde && h.d<=r.d).map(h=>h.p).sort((a,b)=>a-b);
-    if (ref.length < 20) return {...r, pct:null, nref:ref.length};
-    return {...r, pct: ref.filter(x => x < r.p).length / ref.length * 100, nref: ref.length};
-  });
-}
-
-function chartPct(){
-  const cont = document.getElementById("chartPct"), lead = document.getElementById("pctLead");
-  const todas = conPercentil();
-  const filas = todas.filter(r => r.pct != null).sort((a,b) => b.pct - a.pct);
-  const cortos = todas.length - filas.length;
-  if (filas.length < 2){
-    cont.innerHTML = `<div class="empty-state">Todavía no hay híbridos con al menos 20 antecedentes en los 90 días previos al relevamiento.</div>`;
-    lead.textContent = "Cada relevamiento contra la distribución de precios de su propio híbrido.";
-    return;
-  }
-  const mediana = cuantil(filas.map(f=>f.pct).sort((a,b)=>a-b), .5);
-  const altos = filas.filter(f=>f.pct > 75).length, bajos = filas.filter(f=>f.pct < 25).length;
-  const nmin = Math.min(...filas.map(f=>f.nref)), nmax = Math.max(...filas.map(f=>f.nref));
-  const estr = filas.map(f=>f.niveles[0]);
-  lead.innerHTML = `Cada precio contra la distribución de su propio híbrido en los 90 días previos: entre
-    <b style="color:var(--ink)">${nmin} y ${nmax} antecedentes</b>, contra ${Math.min(...estr)} a ${Math.max(...estr)}
-    del criterio estricto. Percentil mediano del equipo:
-    <b style="color:var(--ink)">${nf(mediana,0)}</b>, con ${altos} relevamiento${altos===1?"":"s"}
-    por encima del P75 y ${bajos} por debajo del P25.`;
-
-  const rowH = 21, W = 900, ml = 250, mr = 62, mt = 38, mb = 24;
-  const Ht = mt + filas.length*rowH + mb, iw = W-ml-mr;
-  const X = v => ml + v/100*iw;
-  const ticks = [0,25,50,75,100];
-  const color = p => p > 75 ? "var(--div-pos)" : p < 25 ? "var(--div-neg)" : "var(--muted)";
-
-  cont.innerHTML = `
-  <div class="legend">
-    <span><i style="background:var(--div-neg); border-radius:50%"></i> Por debajo del P25</span>
-    <span><i style="background:var(--muted); border-radius:50%"></i> En la mitad central</span>
-    <span><i style="background:var(--div-pos); border-radius:50%"></i> Por encima del P75</span>
-  </div>
-  <svg class="chart" viewBox="0 0 ${W} ${Ht}" role="img" aria-label="Percentil de mercado de cada relevamiento">
-    <text x="0" y="13" font-size="9.5" fill="var(--muted)" letter-spacing="1.1">RV E HÍBRIDO</text>
-    <text x="${ml}" y="13" font-size="9.5" fill="var(--muted)" letter-spacing="1.1">PERCENTIL DEL MERCADO</text>
-    <rect x="${X(25).toFixed(1)}" y="${mt-8}" width="${(X(75)-X(25)).toFixed(1)}" height="${filas.length*rowH+8}" fill="var(--s1-soft)"></rect>
-    ${ticks.map(v=>`<line x1="${X(v).toFixed(1)}" y1="${mt-8}" x2="${X(v).toFixed(1)}" y2="${mt+filas.length*rowH}" stroke="${v===50?"var(--axis)":"var(--grid)"}" stroke-width="1"></line>
-      <text x="${X(v).toFixed(1)}" y="${mt-13}" text-anchor="middle" font-size="10.5" fill="var(--muted)">${v===0?"más barato":v===100?"más caro":"P"+v}</text>`).join("")}
-    ${filas.map((f,i)=>{ const y = mt + i*rowH + rowH/2;
-      return `<g data-p="${i}" style="cursor:default">
-        <rect x="0" y="${y-rowH/2}" width="${W}" height="${rowH}" fill="transparent"></rect>
-        <text x="0" y="${y+3.5}" font-size="10.5" fill="var(--muted)">${esc(f.rv)}</text>
-        <text x="${ml-14}" y="${y+3.5}" text-anchor="end" font-size="11.5" fill="var(--ink-2)" font-family="IBM Plex Mono, monospace">${esc(f.hibrido)}</text>
-        <circle cx="${X(f.pct).toFixed(1)}" cy="${y}" r="5" fill="${color(f.pct)}" stroke="var(--surface)" stroke-width="1.5"></circle>
-        <text x="${W-mr+10}" y="${y+3.5}" font-size="11" fill="var(--ink-2)" font-family="IBM Plex Mono, monospace">${nf(f.pct,0)}</text>
-      </g>`; }).join("")}
-  </svg>
-  <p class="note"><b>Cómo leerlo.</b> Un punto en el P90 quiere decir que ese precio fue más alto que el 90% de las
-    operaciones del mismo híbrido en los 90 días previos. La banda celeste es la mitad central del mercado: adentro
-    es un precio corriente, afuera merece una llamada.${cortos ? ` ${cortos} relevamiento${cortos===1?"":"s"} sin muestra suficiente quedó afuera.` : ""}</p>`;
-
-  cont.querySelectorAll("[data-p]").forEach(g => {
-    const f = filas[+g.dataset.p];
-    g.addEventListener("mousemove", e => tipOn(e,
-      `<b>${esc(f.hibrido)}</b> <span class="tl">${esc(f.marca)}</span><br>
-       ${esc(f.rv)} · ${esc(f.zona)} · ${esc(f.cond)}<br>
-       <span class="tl">Relevó</span> <b>${usd(f.p)}</b> el ${fFecha(f.d)}<br>
-       <span class="tl">Percentil</span> <b>${nf(f.pct,0)}</b> <span class="tl">sobre ${f.nref} antecedentes del híbrido</span><br>
-       <span class="tl">Criterio estricto: ${f.niveles[0]} comparable${f.niveles[0]===1?"":"s"}</span>`));
-    g.addEventListener("mouseleave", tipOff);
-  });
-}
-
 /* ---------------- tabla: RVs ---------------- */
 function tablaRv(){
   const rel = relevOk();
@@ -951,13 +866,12 @@ function tablaRv(){
 const ETIQ = {alineado:"En línea", atencion:"Atención", desvio:"Desvío relevante",
               sin_datos:"Sin comparables", invalido:"Dato inválido"};
 function tablaRelev(){
-  const pctDe = new Map(conPercentil().map(r => [r.ts + r.hibrido + r.p, r.pct]));
   const rel = relevFiltro().slice().sort((a,b)=> a.ts < b.ts ? 1 : -1);
   const t = document.getElementById("tblRelev");
   if (!rel.length) { t.innerHTML = `<tbody><tr><td class="empty-state">Ningún relevamiento con estos filtros.</td></tr></tbody>`; return; }
   t.innerHTML = `
     <thead><tr><th>Fecha</th><th>RV / zona</th><th>Híbrido</th><th>Cond.</th>
-      <th class="r">Relevado</th><th class="r">Referencia</th><th class="r">Desvío</th><th class="r">Percentil</th><th>Comp.</th><th>Señal</th><th></th></tr></thead>
+      <th class="r">Relevado</th><th class="r">Referencia</th><th class="r">Desvío</th><th>Comp.</th><th>Señal</th><th></th></tr></thead>
     <tbody>${rel.map((r,i)=>`
       <tr class="${r.ok?"":"invalida"}">
         <td class="dim nowrap">${fFecha(r.d)}</td>
@@ -967,14 +881,11 @@ function tablaRelev(){
         <td class="r mono" style="font-weight:600">${usd(r.p)}</td>
         <td class="r mono dim">${r.med!=null?usd(r.med):(r.ok?"—":"fuera de rango")}</td>
         <td class="r mono" style="color:${r.dif==null?"var(--muted)":Math.abs(r.dif)>7?"var(--crit)":Math.abs(r.dif)>3?"var(--ink)":"var(--good)"}; font-weight:600">${r.dif!=null?pct(r.dif):"—"}</td>
-        <td class="r mono">${(()=>{ const p = pctDe.get(r.ts + r.hibrido + r.p);
-          return p==null ? `<span class="dim">—</span>`
-            : `<span style="color:${p>75?"var(--div-pos)":p<25?"var(--div-neg)":"var(--ink-2)"}">P${nf(p,0)}</span>`; })()}</td>
         <td class="num" title="${esc(r.criterio)}">${r.n}</td>
         <td><span class="sig ${r.senal}"><i></i>${ETIQ[r.senal]}</span></td>
         <td>${r.interp ? `<button class="expand" data-i="${i}" aria-expanded="false">Lectura IA</button>` : `<span class="dim" style="font-size:11px">${r.ok?"sin texto":"no se analiza"}</span>`}</td>
       </tr>
-      ${r.interp ? `<tr class="exp-row" id="exp-${i}" hidden><td colspan="11"><div class="exp-in">
+      ${r.interp ? `<tr class="exp-row" id="exp-${i}" hidden><td colspan="10"><div class="exp-in">
         <b>Interpretación generada para este negocio</b><br>${esc(r.interp)}</div></td></tr>` : ""}
     `).join("")}</tbody>`;
   t.querySelectorAll(".expand").forEach(b => b.onclick = () => {
@@ -1037,7 +948,7 @@ function pintarAviso(){
 /* ---------------- render ---------------- */
 function render(){
   pintarFiltros(); pintarKpis(); chartEvo(); chartYoY(); chartDisp(); chartMarcas(); chartHeat(); chartFin();
-  tablaRv(); chartPct(); tablaRelev();
+  tablaRv(); tablaRelev();
 }
 pintarFijos(); render();
 </script>
