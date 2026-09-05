@@ -1,0 +1,864 @@
+<title>Radar de Precios de Semilla</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --plane:#f1f4ee; --surface:#fbfcf9; --surface-2:#f5f7f2;
+  --ink:#131711; --ink-2:#4e544a; --muted:#83887c;
+  --grid:#e2e6db; --axis:#c6ccbc; --hair:rgba(19,23,17,.11); --hair-2:rgba(19,23,17,.06);
+  --accent:#2f6b3f; --accent-soft:rgba(47,107,63,.10);
+  --s1:#2a78d6; --s1-soft:rgba(42,120,214,.14); --s2:#eb6834; --s3:#1baf7a;
+  --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
+  --seq-1:#cde2fb; --seq-2:#9ec5f4; --seq-3:#6da7ec; --seq-4:#3987e5; --seq-5:#256abf; --seq-6:#104281;
+  --div-pos:#2a78d6; --div-neg:#d03b3b; --div-mid:#e6e9e0;
+  --on-seq-dark:#ffffff; --on-seq-light:#0b0b0b;
+  --shadow:0 1px 2px rgba(19,23,17,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --plane:#0d0f0c; --surface:#181b16; --surface-2:#1e221c;
+    --ink:#f3f6f0; --ink-2:#b7bdb0; --muted:#868b80;
+    --grid:#292d25; --axis:#3a3f34; --hair:rgba(243,246,240,.12); --hair-2:rgba(243,246,240,.06);
+    --accent:#7fb98d; --accent-soft:rgba(127,185,141,.14);
+    --s1:#3987e5; --s1-soft:rgba(57,135,229,.20); --s2:#d95926; --s3:#199e70;
+    --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
+    --seq-1:#184f95; --seq-2:#256abf; --seq-3:#2a78d6; --seq-4:#5598e7; --seq-5:#86b6ef; --seq-6:#cde2fb;
+    --div-pos:#3987e5; --div-neg:#e66767; --div-mid:#33382d;
+    --on-seq-dark:#ffffff; --on-seq-light:#0b0b0b;
+    --shadow:0 1px 2px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --plane:#0d0f0c; --surface:#181b16; --surface-2:#1e221c;
+  --ink:#f3f6f0; --ink-2:#b7bdb0; --muted:#868b80;
+  --grid:#292d25; --axis:#3a3f34; --hair:rgba(243,246,240,.12); --hair-2:rgba(243,246,240,.06);
+  --accent:#7fb98d; --accent-soft:rgba(127,185,141,.14);
+  --s1:#3987e5; --s1-soft:rgba(57,135,229,.20); --s2:#d95926; --s3:#199e70;
+  --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
+  --seq-1:#184f95; --seq-2:#256abf; --seq-3:#2a78d6; --seq-4:#5598e7; --seq-5:#86b6ef; --seq-6:#cde2fb;
+  --div-pos:#3987e5; --div-neg:#e66767; --div-mid:#33382d;
+  --on-seq-dark:#ffffff; --on-seq-light:#0b0b0b;
+  --shadow:0 1px 2px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--plane); color:var(--ink);
+  font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1220px; margin:0 auto; padding:0 20px 64px}
+h1,h2,h3{font-family:"Archivo", system-ui, sans-serif; margin:0; text-wrap:balance}
+a{color:var(--accent)}
+.mono{font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- cabecera ---------- */
+header{border-bottom:1px solid var(--hair); background:var(--surface); margin-bottom:22px}
+.head-in{max-width:1220px; margin:0 auto; padding:22px 20px 0; display:flex; flex-wrap:wrap; gap:18px; align-items:flex-start; justify-content:space-between}
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); font-weight:500}
+h1{font-size:27px; font-weight:700; letter-spacing:-.021em; margin-top:5px}
+.sub{color:var(--ink-2); max-width:60ch; margin-top:6px; font-size:13.5px}
+.head-meta{text-align:right; font-size:12px; color:var(--muted); line-height:1.7; flex-shrink:0}
+.head-meta b{color:var(--ink-2); font-weight:500}
+
+/* ---------- filtros ---------- */
+.filters{max-width:1220px; margin:0 auto; padding:16px 20px; display:flex; flex-wrap:wrap; gap:8px 22px; align-items:center}
+.fgroup{display:flex; align-items:center; gap:7px}
+.flabel{font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.11em; text-transform:uppercase; color:var(--muted)}
+select{
+  font:inherit; font-size:12.5px; color:var(--ink); background:var(--surface-2);
+  border:1px solid var(--hair); border-radius:5px; padding:5px 26px 5px 9px; appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 14px) 51%, calc(100% - 10px) 51%;
+  background-size:4px 4px,4px 4px; background-repeat:no-repeat; cursor:pointer;
+}
+select:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+.pills{display:flex; gap:2px; background:var(--surface-2); border:1px solid var(--hair); border-radius:6px; padding:2px}
+.pill{font:inherit; font-size:12px; border:0; background:transparent; color:var(--ink-2); padding:4px 10px; border-radius:4px; cursor:pointer}
+.pill[aria-pressed="true"]{background:var(--accent); color:#fff; font-weight:600}
+:root[data-theme="dark"] .pill[aria-pressed="true"], :root:not([data-theme="light"]) .pill[aria-pressed="true"]{color:#0d0f0c}
+.pill:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+.reset{margin-left:auto; font:inherit; font-size:12px; background:none; border:0; color:var(--accent); cursor:pointer; text-decoration:underline; text-underline-offset:3px}
+
+/* ---------- bloques ---------- */
+section{margin-top:30px}
+.shead{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:12px}
+h2{font-size:16.5px; font-weight:600; letter-spacing:-.012em}
+.shead p{margin:0; color:var(--muted); font-size:12.5px; max-width:62ch}
+.card{background:var(--surface); border:1px solid var(--hair); border-radius:9px; padding:16px 18px; box-shadow:var(--shadow)}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+.grid2>*{min-width:0}
+.card>div{min-width:0}
+@media (max-width:900px){.grid2{grid-template-columns:1fr}}
+
+/* ---------- KPIs ---------- */
+.kpis{display:grid; grid-template-columns:repeat(5,1fr); gap:1px; background:var(--hair); border:1px solid var(--hair); border-radius:9px; overflow:hidden}
+@media (max-width:1000px){.kpis{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.kpis{grid-template-columns:1fr}}
+.kpi{background:var(--surface); padding:14px 16px 15px; display:flex; flex-direction:column; gap:3px}
+.kpi .k-lab{font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.11em; text-transform:uppercase; color:var(--muted)}
+.kpi .k-val{font-family:"Archivo",sans-serif; font-size:27px; font-weight:600; letter-spacing:-.025em; line-height:1.12}
+.kpi .k-val small{font-size:14px; font-weight:500; color:var(--ink-2); letter-spacing:0}
+.kpi .k-note{font-size:11.5px; color:var(--muted); margin-top:2px}
+.delta{font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px}
+.delta.up{color:var(--good)} .delta.down{color:var(--crit)} .delta.flat{color:var(--muted)}
+
+/* ---------- señales ---------- */
+.sig{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; padding:2px 8px 2px 6px; border-radius:999px; white-space:nowrap}
+.sig i{width:7px; height:7px; border-radius:50%; flex-shrink:0}
+.sig.alineado{background:rgba(12,163,12,.12); color:var(--good)} .sig.alineado i{background:var(--good)}
+.sig.atencion{background:rgba(250,178,25,.16); color:#8a5f00} .sig.atencion i{background:var(--warn)}
+:root[data-theme="dark"] .sig.atencion, :root:not([data-theme="light"]) .sig.atencion{color:var(--warn)}
+.sig.desvio{background:rgba(208,59,59,.13); color:var(--crit)} .sig.desvio i{background:var(--crit)}
+.sig.sin_datos{background:var(--surface-2); color:var(--muted)} .sig.sin_datos i{background:var(--muted)}
+.sig.invalido{background:transparent; color:var(--crit); border:1px dashed var(--crit); padding:1px 8px 1px 5px}
+.sig.invalido i{background:var(--crit)}
+tr.invalida td{opacity:.72}
+
+/* ---------- tablas ---------- */
+.tw{overflow-x:auto; border:1px solid var(--hair); border-radius:9px; background:var(--surface); box-shadow:var(--shadow)}
+table{border-collapse:collapse; width:100%; font-size:12.5px; min-width:640px}
+th{
+  font-family:"IBM Plex Mono",monospace; font-size:9.5px; letter-spacing:.11em; text-transform:uppercase;
+  color:var(--muted); font-weight:500; text-align:left; padding:10px 12px; border-bottom:1px solid var(--hair);
+  background:var(--surface-2); white-space:nowrap;
+}
+td{padding:9px 12px; border-bottom:1px solid var(--hair-2); vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:var(--surface-2)}
+.r{text-align:right} .nowrap{white-space:nowrap}
+.sku{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink-2)}
+.dim{color:var(--muted)}
+.cargas{display:inline-flex; align-items:center; gap:9px}
+.cargas b{font-weight:500; min-width:13px; font-variant-numeric:tabular-nums}
+.cargas i{height:5px; border-radius:2px; background:var(--s1); opacity:.5; display:inline-block}
+tr.exp-row td{background:var(--surface-2); padding:0}
+.exp-in{padding:12px 14px 14px; font-size:12.5px; color:var(--ink-2); max-width:82ch; line-height:1.62; border-left:2px solid var(--accent)}
+.exp-in b{color:var(--ink); font-weight:600}
+button.expand{font:inherit; font-size:11px; background:none; border:1px solid var(--hair); border-radius:4px; color:var(--ink-2); padding:2px 7px; cursor:pointer; white-space:nowrap}
+button.expand:hover{border-color:var(--accent); color:var(--accent)}
+button.expand:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+
+/* ---------- charts ---------- */
+.chart{width:100%; display:block; overflow:visible}
+.chart text{font-family:"IBM Plex Sans",sans-serif}
+.legend{display:flex; gap:16px; flex-wrap:wrap; align-items:center; font-size:11.5px; color:var(--ink-2); margin-bottom:9px}
+.legend span{display:inline-flex; align-items:center; gap:6px}
+.legend i{width:11px; height:11px; border-radius:2px; display:inline-block}
+.legend i.line{height:2px; border-radius:1px; width:14px}
+.tip{
+  position:fixed; z-index:60; pointer-events:none; opacity:0; transition:opacity .09s;
+  background:var(--surface); color:var(--ink); border:1px solid var(--hair); border-radius:7px;
+  padding:8px 10px; font-size:11.5px; line-height:1.5; box-shadow:0 6px 22px rgba(0,0,0,.16); max-width:250px;
+}
+.tip b{font-weight:600} .tip .tl{color:var(--muted)}
+.ramp{display:flex; align-items:center; gap:7px; font-size:11px; color:var(--muted); margin-top:10px}
+.ramp .steps{display:flex}
+.ramp .steps i{width:24px; height:9px; display:block}
+.hm{border-collapse:separate; border-spacing:2px; min-width:560px}
+.hm th{background:none; border:0; padding:4px 6px}
+.hm th.rowh{text-align:right; font-family:"IBM Plex Sans",sans-serif; font-size:12px; text-transform:none; letter-spacing:0; color:var(--ink-2); font-weight:500; white-space:nowrap}
+.hm td{border:0; padding:0}
+.hm .cell{border-radius:4px; padding:9px 4px; text-align:center; font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-variant-numeric:tabular-nums; cursor:default}
+.hm .cell.empty{background:var(--surface-2); color:var(--muted)}
+
+.alert{display:flex; gap:12px; padding:13px 15px 13px 13px; border:1px solid var(--hair); border-left-width:3px; border-radius:8px; background:var(--surface); margin-bottom:9px}
+.alert.critical{border-left-color:var(--crit)} .alert.serious{border-left-color:var(--serious)} .alert.warning{border-left-color:var(--warn)}
+.alert .ic{font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:12px; flex-shrink:0; width:15px; text-align:center; margin-top:1px}
+.alert.critical .ic{color:var(--crit)} .alert.serious .ic{color:var(--serious)} .alert.warning .ic{color:var(--warn)}
+.alert h3{font-size:13px; font-weight:600; font-family:"IBM Plex Sans",sans-serif; margin-bottom:3px}
+.alert p{margin:0; font-size:12.5px; color:var(--ink-2); max-width:88ch}
+
+.note{font-size:12px; color:var(--muted); margin-top:9px; max-width:80ch}
+.note b{color:var(--ink-2); font-weight:500}
+footer{margin-top:40px; padding-top:18px; border-top:1px solid var(--hair); font-size:12px; color:var(--muted); display:flex; flex-wrap:wrap; gap:6px 20px; justify-content:space-between}
+.empty-state{padding:34px 16px; text-align:center; color:var(--muted); font-size:13px}
+@media (prefers-reduced-motion:reduce){*{transition:none !important; animation:none !important}}
+</style>
+
+<header>
+  <div class="head-in">
+    <div>
+      <div class="eyebrow">Relevamiento comercial · maíz</div>
+      <h1>Radar de Precios de Semilla</h1>
+      <p class="sub">Lo que el equipo relevó en la calle, contra el histórico de mercado. La interpretación que llega por mail es la foto de un negocio; esto es la película.</p>
+    </div>
+    <div class="head-meta" id="headMeta"></div>
+  </div>
+  <div class="filters" id="filtros"></div>
+</header>
+
+<div class="wrap">
+  <section id="secKpis" style="margin-top:0"></section>
+
+  <section>
+    <div class="shead">
+      <h2>Cómo se movió el precio</h2>
+      <p>Promedio ponderado por volumen, media móvil de 7 días. La banda es el rango donde cae la mitad central de las operaciones (P25–P75).</p>
+    </div>
+    <div class="card"><div id="chartEvo"></div></div>
+  </section>
+
+  <section id="secYoY">
+    <div class="shead">
+      <h2>Este año contra el anterior</h2>
+      <p id="yoyLead"></p>
+    </div>
+    <div class="card"><div id="chartYoY"></div></div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <h2>Cuánto se mueve cada híbrido</h2>
+      <p>El mismo desvío no significa lo mismo en todos lados. En un híbrido que se mueve 6% de punta a punta, un +9% es una señal fuerte; en uno que se mueve 29%, es ruido. Esta es la vara para leer los mails.</p>
+    </div>
+    <div class="card"><div id="chartDisp"></div></div>
+  </section>
+
+  <div class="grid2">
+    <section style="margin-top:30px">
+      <div class="shead"><h2>Precio por marca</h2></div>
+      <div class="card"><div id="chartMarcas"></div></div>
+    </section>
+    <section style="margin-top:30px">
+      <div class="shead"><h2>Zona por marca</h2></div>
+      <div class="card"><div id="chartHeat"></div></div>
+    </section>
+  </div>
+
+  <section>
+    <div class="shead">
+      <h2>Qué se paga por financiar</h2>
+      <p>Diferencia entre el precio financiado y el de contado, por marca.</p>
+    </div>
+    <div class="card"><div id="chartFin"></div></div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <h2>Actividad del equipo</h2>
+      <p>Quién está cargando, con qué frecuencia y qué tan lejos del mercado caen sus relevamientos.</p>
+    </div>
+    <div class="tw"><table id="tblRv"></table></div>
+    <p class="note" id="notaCobertura"></p>
+  </section>
+
+  <section>
+    <div class="shead">
+      <h2>Últimos relevamientos</h2>
+      <p>Cada fila es un precio informado por un RV, comparado contra el histórico de los 30 días previos a esa fecha de negocio.</p>
+    </div>
+    <div class="tw"><table id="tblRelev"></table></div>
+    <p class="note" id="notaCriterio"></p>
+  </section>
+
+  <section>
+    <div class="shead">
+      <h2>Qué hay que arreglar en el sheet</h2>
+      <p>Chequeos automáticos sobre los datos de origen, cada vez que el dashboard se actualiza.</p>
+    </div>
+    <div id="alertas"></div>
+  </section>
+
+  <footer>
+    <span>Fuente: <a id="lnkSheet" href="#" target="_blank" rel="noopener">Google Sheet del relevamiento</a> · histórico, maestros, relevamientos de V0 y hoja de análisis.</span>
+    <span id="footMeta"></span>
+  </footer>
+</div>
+
+<div class="tip" id="tip" role="status"></div>
+
+<script>
+const D = /*__DATOS__*/null;
+const H = D.hist.map(r => ({d:r[0], region:r[1], zona:r[2], marca:r[3], hibrido:r[4], cond:r[5], p:r[6], v:r[7]}));
+const R = D.relev;
+const HOY = D.meta.hoy;
+
+/* ---------------- utilidades ---------------- */
+const nf = (n, d=1) => n==null || !isFinite(n) ? "—" : n.toLocaleString("es-AR",{minimumFractionDigits:d, maximumFractionDigits:d});
+const n0 = n => n==null || !isFinite(n) ? "—" : Math.round(n).toLocaleString("es-AR");
+const usd = (n, d=1) => n==null || !isFinite(n) ? "—" : "US$ " + nf(n, d);
+const pct = (n, d=1) => n==null || !isFinite(n) ? "—" : (n>0?"+":"") + nf(n, d) + "%";
+const esc = s => String(s??"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const MES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+const fDia = s => { const [y,m,d] = s.split("-"); return +d + " " + MES[+m-1]; };
+const fMes = s => MES[+s.slice(5,7)-1];
+const fMesAnio = s => MES[+s.slice(5,7)-1] + " " + s.slice(2,4);
+const mesPrev = k => (+k.slice(0,4)-1) + k.slice(4);
+const fFecha = s => { const [y,m,d] = s.split("-"); return d + "/" + m + "/" + y; };
+const shift = (iso, n) => { const t = new Date(iso + "T00:00:00Z"); t.setUTCDate(t.getUTCDate()+n); return t.toISOString().slice(0,10); };
+
+function cuantil(sorted, q){
+  if (!sorted.length) return null;
+  const i = (sorted.length - 1) * q, lo = Math.floor(i), hi = Math.ceil(i);
+  return lo === hi ? sorted[lo] : sorted[lo] + (sorted[hi]-sorted[lo]) * (i-lo);
+}
+const pond = rs => { const v = rs.reduce((a,r)=>a+r.v,0); return v ? rs.reduce((a,r)=>a+r.p*r.v,0)/v : (rs.length ? rs.reduce((a,r)=>a+r.p,0)/rs.length : null); };
+const uniq = (arr, k) => [...new Set(arr.map(k))].sort();
+const nWin = w => w === "todo" ? "toda la serie" : w === 365 ? "últimos 12 meses" : "últimos " + w + " días";
+
+/* ---------------- estado ---------------- */
+const st = {region:"", marca:"", cond:"", win:30};
+const baseFiltro = () => H.filter(r =>
+  (!st.region || r.region===st.region) && (!st.marca || r.marca===st.marca) && (!st.cond || r.cond===st.cond));
+const enVentana = (rs, win, hasta=HOY) => win==="todo" ? rs
+  : rs.filter(r => r.d > shift(hasta, -win) && r.d <= hasta);
+const relevFiltro = () => R.filter(r =>
+  (!st.region || r.region===st.region) && (!st.marca || r.marca===st.marca) && (!st.cond || r.cond===st.cond));
+const relevOk = () => relevFiltro().filter(r => r.ok);   // sin los precios fuera de rango
+
+/* ---------------- tooltip ---------------- */
+const tipEl = document.getElementById("tip");
+function tipOn(e, html){
+  tipEl.innerHTML = html; tipEl.style.opacity = 1;
+  const w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+  let x = e.clientX + 14, y = e.clientY - h - 10;
+  if (x + w > innerWidth - 8) x = e.clientX - w - 14;
+  if (y < 8) y = e.clientY + 18;
+  tipEl.style.left = x + "px"; tipEl.style.top = y + "px";
+}
+const tipOff = () => tipEl.style.opacity = 0;
+addEventListener("scroll", tipOff, {passive:true});
+
+/* ---------------- filtros UI ---------------- */
+function pintarFiltros(){
+  const f = document.getElementById("filtros");
+  const sel = (id, lab, opts, val, all) =>
+    `<div class="fgroup"><label class="flabel" for="${id}">${lab}</label><select id="${id}">
+      <option value="">${all}</option>${opts.map(o=>`<option value="${esc(o)}"${o===val?" selected":""}>${esc(o)}</option>`).join("")}</select></div>`;
+  f.innerHTML =
+    sel("fRegion","Región", uniq(H, r=>r.region), st.region, "Todas") +
+    sel("fMarca","Marca", uniq(H, r=>r.marca), st.marca, "Todas") +
+    sel("fCond","Condición", uniq(H, r=>r.cond), st.cond, "Ambas") +
+    `<div class="fgroup"><span class="flabel">Ventana</span><div class="pills" role="group" aria-label="Ventana de tiempo">
+      ${[[30,"30 d"],[90,"90 d"],[365,"12 m"],["todo","Todo"]].map(([v,l])=>
+        `<button class="pill" data-win="${v}" aria-pressed="${String(st.win)===String(v)}">${l}</button>`).join("")}
+    </div></div>` +
+    `<button class="reset" id="fReset">Limpiar filtros</button>`;
+  f.querySelector("#fRegion").onchange = e => { st.region = e.target.value; render(); };
+  f.querySelector("#fMarca").onchange  = e => { st.marca  = e.target.value; render(); };
+  f.querySelector("#fCond").onchange   = e => { st.cond   = e.target.value; render(); };
+  f.querySelectorAll(".pill").forEach(b => b.onclick = () => {
+    st.win = b.dataset.win === "todo" ? "todo" : +b.dataset.win; render(); });
+  f.querySelector("#fReset").onclick = () => { st.region=st.marca=st.cond=""; st.win=30; render(); };
+}
+
+/* ---------------- KPIs ---------------- */
+function pintarKpis(){
+  const base = baseFiltro();
+  const act = enVentana(base, st.win);
+  const win = st.win === "todo" ? null : st.win;
+  const prev = win ? base.filter(r => r.d > shift(HOY, -2*win) && r.d <= shift(HOY, -win)) : [];
+  const diasPrev = new Set(prev.map(r=>r.d)).size;
+
+  const pAct = pond(act), pPrev = pond(prev);
+  const comparable = win && diasPrev >= Math.min(12, win*0.6);
+  const dl = comparable && pAct && pPrev ? (pAct/pPrev - 1) * 100 : null;
+
+  const ps = act.map(r=>r.p).sort((a,b)=>a-b);
+  const q1 = cuantil(ps,.25), q3 = cuantil(ps,.75), med = cuantil(ps,.5);
+  const disp = med ? (q3-q1)/med*100 : null;
+  const vol = act.reduce((a,r)=>a+r.v,0);
+
+  const rel = relevOk(), todos = relevFiltro();
+  const descartados = todos.length - rel.length;
+  const rvsAct = new Set(rel.map(r=>r.rv)).size;
+  const fuera = rel.filter(r => r.senal === "desvio");
+  const ultimos7 = rel.filter(r => r.d > shift(HOY,-7)).length;
+
+  // mismo periodo, un anio antes
+  const desdeA = shift(HOY, -(win||365)), aA = shift(desdeA,-365), bA = shift(HOY,-365);
+  const anioAnt = base.filter(r => r.d > aA && r.d <= bA);
+  const pAnio = pond(anioAnt);
+  const dlA = anioAnt.length >= 20 && pAct && pAnio ? (pAct/pAnio - 1) * 100 : null;
+  const clsA = dlA==null ? "flat" : (dlA > 0.25 ? "up" : dlA < -0.25 ? "down" : "flat");
+  const flechaA = dlA==null ? "" : (dlA > 0.25 ? "▲" : dlA < -0.25 ? "▼" : "▬");
+
+  const cls = dl==null ? "flat" : (dl > 0.25 ? "up" : dl < -0.25 ? "down" : "flat");
+  const flecha = dl==null ? "" : (dl > 0.25 ? "▲" : dl < -0.25 ? "▼" : "▬");
+  const etiqWin = nWin(st.win);
+
+  document.getElementById("secKpis").innerHTML = `<div class="kpis">
+    <div class="kpi">
+      <span class="k-lab">Precio de mercado</span>
+      <span class="k-val">${act.length? "US$&nbsp;"+nf(pAct,1) : "—"} <small>/bolsa</small></span>
+      <span class="k-note">${dl!=null
+        ? `<span class="delta ${cls}">${flecha} ${pct(dl)}</span> vs. período previo`
+        : (win ? `el histórico arranca el ${fFecha(D.meta.hist_desde)}: no alcanza para comparar contra el período previo`
+                : "ponderado por volumen, toda la serie")}</span>
+      ${dlA!=null ? `<span class="k-note"><span class="delta ${clsA}">${flechaA} ${pct(dlA)}</span> vs. mismo período de ${bA.slice(0,4)}</span>` : ""}
+    </div>
+    <div class="kpi">
+      <span class="k-lab">Dispersión</span>
+      <span class="k-val">${disp!=null? nf(disp,0)+"%" : "—"}</span>
+      <span class="k-note">${q1&&q3 ? `mitad central entre ${usd(q1,0)} y ${usd(q3,0)}` : "sin datos"}</span>
+    </div>
+    <div class="kpi">
+      <span class="k-lab">Volumen del mercado</span>
+      <span class="k-val">${n0(vol)} <small>bolsas</small></span>
+      <span class="k-note">${n0(act.length)} operaciones · ${etiqWin}</span>
+    </div>
+    <div class="kpi">
+      <span class="k-lab">Relevamientos del equipo</span>
+      <span class="k-val">${rel.length}</span>
+      <span class="k-note">${rvsAct} RV activos de ${D.meta.n_rv} · ${ultimos7} en los últimos 7 días${
+        descartados ? ` · ${descartados} descartado${descartados>1?"s":""} por precio inválido` : ""}</span>
+    </div>
+    <div class="kpi">
+      <span class="k-lab">Fuera de línea</span>
+      <span class="k-val">${fuera.length}</span>
+      <span class="k-note">${rel.length? nf(fuera.length/rel.length*100,0)+"% de los relevamientos" : "sin relevamientos"} · desvío &gt; 7%</span>
+    </div>
+  </div>`;
+}
+
+/* ---------------- chart: evolución ---------------- */
+function chartEvo(){
+  const cont = document.getElementById("chartEvo");
+  const base = baseFiltro();
+  if (base.length < 8) { cont.innerHTML = `<div class="empty-state">No hay suficientes operaciones para dibujar la serie con estos filtros.</div>`; return; }
+
+  const dias = [...new Set(base.map(r=>r.d))].sort();
+  const porDia = new Map(); base.forEach(r => { (porDia.get(r.d) ?? porDia.set(r.d,[]).get(r.d)).push(r); });
+  const serie = dias.map(d => {
+    const desde = shift(d,-6);
+    const w = base.filter(r => r.d >= desde && r.d <= d);
+    const ps = w.map(r=>r.p).sort((a,b)=>a-b);
+    return {d, m: pond(w), q1: cuantil(ps,.25), q3: cuantil(ps,.75), n: w.length};
+  }).filter(s => s.n >= 3);
+  if (serie.length < 3) { cont.innerHTML = `<div class="empty-state">Muy pocos días con operaciones para dibujar la serie.</div>`; return; }
+
+  const rel = relevOk().filter(r => r.d >= dias[0] && r.d <= dias[dias.length-1]);
+  const W=900, Ht=290, ml=54, mr=14, mt=14, mb=34;
+  const iw = W-ml-mr, ih = Ht-mt-mb;
+  const xi = new Map(dias.map((d,i)=>[d,i]));
+  const X = d => ml + (dias.length===1 ? iw/2 : xi.get(d)/(dias.length-1)*iw);
+  const vals = serie.flatMap(s=>[s.q1,s.q3]).concat(rel.map(r=>r.p)).filter(v=>v!=null);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  const pad = (hi-lo)*0.10 || 5; lo -= pad; hi += pad;
+  const paso = Math.max(5, Math.ceil((hi-lo)/5/5)*5);
+  lo = Math.floor(lo/paso)*paso; hi = Math.ceil(hi/paso)*paso;
+  const Y = v => mt + ih - (v-lo)/(hi-lo)*ih;
+
+  const ticksY = []; for (let v=lo; v<=hi+.001; v+=paso) ticksY.push(v);
+  // El eje se adapta al largo de la serie: dias sueltos en 2 meses, meses en 2 anios.
+  const spanD = (new Date(dias[dias.length-1]) - new Date(dias[0])) / 864e5;
+  let ticksX, fmtX;
+  if (spanD <= 75) {
+    ticksX = dias.filter(d => d.slice(8)==="01" || d.slice(8)==="15");
+    if (ticksX.length < 3) ticksX = [dias[0], dias[dias.length-1]];
+    fmtX = fDia;
+  } else {
+    const vistos = new Set(), primeros = [];
+    dias.forEach(d => { const k = d.slice(0,7); if (!vistos.has(k)) { vistos.add(k); primeros.push(d); } });
+    const paso = Math.ceil(primeros.length / 9);
+    ticksX = primeros.filter((_,i) => i % paso === 0);
+    fmtX = spanD > 400 ? fMesAnio : fMes;
+  }
+
+  const areaTop = serie.map(s=>`${X(s.d).toFixed(1)},${Y(s.q3).toFixed(1)}`).join(" L");
+  const areaBot = serie.slice().reverse().map(s=>`${X(s.d).toFixed(1)},${Y(s.q1).toFixed(1)}`).join(" L");
+  const linea = serie.map((s,i)=>`${i?"L":"M"}${X(s.d).toFixed(1)},${Y(s.m).toFixed(1)}`).join(" ");
+
+  const winIni = st.win==="todo" ? null : shift(HOY,-st.win);
+  const dentro = d => !winIni || (d > winIni && d <= HOY);
+  const dWin = dias.filter(dentro);
+  const sombra = (st.win!=="todo" && dWin.length>1)
+    ? `<rect x="${X(dWin[0]).toFixed(1)}" y="${mt}" width="${(X(dWin[dWin.length-1])-X(dWin[0])).toFixed(1)}" height="${ih}" fill="var(--accent-soft)"></rect>` : "";
+  const hoyLn = dias.includes(HOY) || (dias[0] < HOY && HOY < dias[dias.length-1])
+    ? (()=>{ const near = dias.reduce((a,b)=> Math.abs(new Date(b)-new Date(HOY)) < Math.abs(new Date(a)-new Date(HOY)) ? b : a);
+        return `<line x1="${X(near).toFixed(1)}" y1="${mt}" x2="${X(near).toFixed(1)}" y2="${mt+ih}" stroke="var(--axis)" stroke-width="1" stroke-dasharray="3 3"></line>
+        <text x="${(X(near)+5).toFixed(1)}" y="${mt+11}" font-size="10" fill="var(--muted)">hoy</text>`; })() : "";
+
+  cont.innerHTML = `
+  <div class="legend">
+    <span><i class="line" style="background:var(--s1)"></i> Precio de mercado (móvil 7 d)</span>
+    <span><i style="background:var(--s1-soft); border:1px solid var(--s1)"></i> Mitad central (P25–P75)</span>
+    <span><i style="background:var(--s2); border-radius:50%"></i> Relevamientos del equipo</span>
+    ${st.win!=="todo" ? `<span><i style="background:var(--accent-soft); border:1px solid var(--accent)"></i> Ventana activa (${nWin(st.win)})</span>` : ""}
+  </div>
+  <svg class="chart" viewBox="0 0 ${W} ${Ht}" role="img" aria-label="Evolución del precio promedio de mercado">
+    ${sombra}
+    ${ticksY.map(v=>`<line x1="${ml}" y1="${Y(v).toFixed(1)}" x2="${W-mr}" y2="${Y(v).toFixed(1)}" stroke="var(--grid)" stroke-width="1"></line>
+      <text x="${ml-9}" y="${(Y(v)+3.5).toFixed(1)}" text-anchor="end" font-size="10.5" fill="var(--muted)">${n0(v)}</text>`).join("")}
+    <text x="${ml-9}" y="${mt-3}" text-anchor="end" font-size="9.5" fill="var(--muted)">US$</text>
+    ${hoyLn}
+    <path d="M${areaTop} L${areaBot} Z" fill="var(--s1-soft)"></path>
+    <path d="${linea}" fill="none" stroke="var(--s1)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>
+    ${rel.map(r=>`<circle cx="${X(r.d).toFixed(1)}" cy="${Y(r.p).toFixed(1)}" r="4" fill="var(--s2)" stroke="var(--surface)" stroke-width="1.5"
+        data-rel="${esc(r.rv)}|${esc(r.hibrido)}|${r.p}|${esc(fFecha(r.d))}" style="cursor:pointer"></circle>`).join("")}
+    ${ticksX.map(d=>`<line x1="${X(d).toFixed(1)}" y1="${mt+ih}" x2="${X(d).toFixed(1)}" y2="${mt+ih+4}" stroke="var(--axis)" stroke-width="1"></line>
+      <text x="${X(d).toFixed(1)}" y="${Ht-13}" text-anchor="middle" font-size="10.5" fill="var(--muted)">${fmtX(d)}</text>`).join("")}
+    <line x1="${ml}" y1="${mt+ih}" x2="${W-mr}" y2="${mt+ih}" stroke="var(--axis)" stroke-width="1"></line>
+    <g id="evoCross" opacity="0"><line y1="${mt}" y2="${mt+ih}" stroke="var(--axis)" stroke-width="1"></line><circle r="4.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"></circle></g>
+    <rect id="evoHit" x="${ml}" y="${mt}" width="${iw}" height="${ih}" fill="transparent"></rect>
+  </svg>`;
+
+  const svg = cont.querySelector("svg"), cross = cont.querySelector("#evoCross");
+  cont.querySelector("#evoHit").addEventListener("mousemove", e => {
+    const bb = svg.getBoundingClientRect();
+    const px = (e.clientX - bb.left) / bb.width * W;
+    const i = Math.max(0, Math.min(serie.length-1, Math.round((px-ml)/iw*(dias.length-1))));
+    const s = serie.reduce((a,b)=> Math.abs(X(b.d)-px) < Math.abs(X(a.d)-px) ? b : a);
+    cross.setAttribute("opacity","1");
+    cross.querySelector("line").setAttribute("x1", X(s.d)); cross.querySelector("line").setAttribute("x2", X(s.d));
+    cross.querySelector("circle").setAttribute("cx", X(s.d)); cross.querySelector("circle").setAttribute("cy", Y(s.m));
+    tipOn(e, `<b>${fFecha(s.d)}</b><br><span class="tl">Promedio ponderado</span> <b>${usd(s.m)}</b><br>
+      <span class="tl">P25–P75</span> ${usd(s.q1,0)} – ${usd(s.q3,0)}<br><span class="tl">${s.n} operaciones en los 7 días previos</span>`);
+  });
+  cont.querySelector("#evoHit").addEventListener("mouseleave", ()=>{ cross.setAttribute("opacity","0"); tipOff(); });
+  cont.querySelectorAll("[data-rel]").forEach(c => {
+    c.addEventListener("mouseenter", e => { const [rv,hib,p,f] = c.dataset.rel.split("|");
+      tipOn(e, `<b>Relevamiento</b><br>${esc(rv)}<br><span class="tl">${esc(hib)}</span><br>${usd(+p)} · ${esc(f)}`); });
+    c.addEventListener("mouseleave", tipOff);
+  });
+}
+
+/* ---------------- chart: dispersión por híbrido ---------------- */
+function chartDisp(){
+  const cont = document.getElementById("chartDisp");
+  const rs = enVentana(baseFiltro(), st.win);
+  const g = new Map();
+  rs.forEach(r => { const k = r.marca+"|"+r.hibrido; (g.get(k) ?? g.set(k,[]).get(k)).push(r); });
+  let filas = [...g.entries()].map(([k, arr]) => {
+    const ps = arr.map(r=>r.p).sort((a,b)=>a-b);
+    const med = cuantil(ps,.5);
+    return {marca:k.split("|")[0], hib:k.split("|")[1], n:arr.length, min:ps[0], max:ps[ps.length-1],
+            q1:cuantil(ps,.25), q3:cuantil(ps,.75), med, disp:(ps[ps.length-1]-ps[0])/med*100};
+  }).filter(f => f.n >= 6).sort((a,b)=> b.disp - a.disp);
+  if (!filas.length) { cont.innerHTML = `<div class="empty-state">No hay híbridos con al menos 6 operaciones en esta ventana. Probá ampliar la ventana o quitar filtros.</div>`; return; }
+
+  const rowH = 21, W = 900, ml = 206, mr = 96, mt = 40, mb = 24;
+  const Ht = mt + filas.length*rowH + mb, iw = W-ml-mr;
+  let lo = Math.min(...filas.map(f=>f.min)), hi = Math.max(...filas.map(f=>f.max));
+  const pad = (hi-lo)*.04; lo -= pad; hi += pad;
+  const paso = Math.max(10, Math.ceil((hi-lo)/6/10)*10);
+  lo = Math.floor(lo/paso)*paso; hi = Math.ceil(hi/paso)*paso;
+  const X = v => ml + (v-lo)/(hi-lo)*iw;
+  const ticks = []; for (let v=lo; v<=hi+.001; v+=paso) ticks.push(v);
+
+  cont.innerHTML = `
+  <div class="legend">
+    <span><i class="line" style="background:var(--axis); width:16px"></i> Mínimo–máximo</span>
+    <span><i style="background:var(--s1-soft); border:1px solid var(--s1)"></i> Mitad central (P25–P75)</span>
+    <span><i style="background:var(--s1); width:3px; border-radius:1px"></i> Mediana</span>
+  </div>
+  <svg class="chart" viewBox="0 0 ${W} ${Ht}" role="img" aria-label="Dispersión de precio por híbrido">
+    <text x="0" y="13" font-size="9.5" fill="var(--muted)" letter-spacing="1.1">MARCA E HÍBRIDO</text>
+    <text x="${ml}" y="13" font-size="9.5" fill="var(--muted)" letter-spacing="1.1">US$ POR BOLSA</text>
+    <text x="${W-mr+8}" y="13" font-size="9.5" fill="var(--muted)" letter-spacing="1.1">RANGO</text>
+    ${ticks.map(v=>`<line x1="${X(v).toFixed(1)}" y1="${mt-8}" x2="${X(v).toFixed(1)}" y2="${mt+filas.length*rowH}" stroke="var(--grid)" stroke-width="1"></line>
+      <text x="${X(v).toFixed(1)}" y="${mt-13}" text-anchor="middle" font-size="10.5" fill="var(--muted)">${n0(v)}</text>`).join("")}
+    ${filas.map((f,i)=>{ const y = mt + i*rowH + rowH/2;
+      return `<g data-h="${i}" style="cursor:default">
+        <rect x="0" y="${y-rowH/2}" width="${W}" height="${rowH}" fill="transparent"></rect>
+        <text x="0" y="${y+3.5}" font-size="10.5" fill="var(--muted)">${esc(f.marca)}</text>
+        <text x="${ml-14}" y="${y+3.5}" text-anchor="end" font-size="11.5" fill="var(--ink-2)" font-family="IBM Plex Mono, monospace">${esc(f.hib)}</text>
+        <line x1="${X(f.min).toFixed(1)}" y1="${y}" x2="${X(f.max).toFixed(1)}" y2="${y}" stroke="var(--axis)" stroke-width="1.5" stroke-linecap="round"></line>
+        <rect x="${X(f.q1).toFixed(1)}" y="${y-6}" width="${Math.max(2,X(f.q3)-X(f.q1)).toFixed(1)}" height="12" rx="3" fill="var(--s1-soft)" stroke="var(--s1)" stroke-width="1"></rect>
+        <rect x="${(X(f.med)-1.5).toFixed(1)}" y="${y-7.5}" width="3" height="15" rx="1.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="0.5"></rect>
+        <text x="${W-mr+8}" y="${y+3.5}" font-size="11" fill="var(--ink-2)" font-family="IBM Plex Mono, monospace">${nf(f.disp,0)}%</text>
+      </g>`; }).join("")}
+  </svg>`;
+
+  cont.querySelectorAll("[data-h]").forEach(gEl => {
+    const f = filas[+gEl.dataset.h];
+    gEl.addEventListener("mousemove", e => tipOn(e,
+      `<b>${esc(f.hib)}</b> <span class="tl">${esc(f.marca)}</span><br>
+       <span class="tl">Mediana</span> <b>${usd(f.med)}</b><br>
+       <span class="tl">P25–P75</span> ${usd(f.q1,0)} – ${usd(f.q3,0)}<br>
+       <span class="tl">Mín–máx</span> ${usd(f.min,0)} – ${usd(f.max,0)}<br>
+       <span class="tl">${f.n} operaciones · se mueve ${nf(f.disp,0)}% de punta a punta</span>`));
+    gEl.addEventListener("mouseleave", tipOff);
+  });
+}
+
+/* ---------------- chart: interanual ---------------- */
+function chartYoY(){
+  const cont = document.getElementById("chartYoY");
+  const base = baseFiltro();   // el interanual ignora la ventana: siempre son 12 meses contra 12
+  const m = new Map();
+  base.forEach(r => { const k = r.d.slice(0,7); (m.get(k) ?? m.set(k,[]).get(k)).push(r); });
+  const filas = [...m.keys()].sort()
+    .filter(k => { const p = mesPrev(k); return m.has(p) && m.get(k).length >= 15 && m.get(p).length >= 15; })
+    .slice(-12)
+    .map(k => { const p = mesPrev(k), ra = m.get(k), rb = m.get(p), a = pond(ra), b = pond(rb);
+      return {k, p, ra, rb, a, b, dif:(a/b-1)*100, na:ra.length, nb:rb.length}; });
+
+  const lead = document.getElementById("yoyLead");
+  if (filas.length < 2){
+    cont.innerHTML = `<div class="empty-state">Todavía no hay dos años con el mismo mes cargado para comparar con estos filtros. Hacen falta al menos 15 operaciones en cada mes.</div>`;
+    lead.textContent = "Compara cada mes contra el mismo mes del año anterior, a igual volumen ponderado.";
+    return;
+  }
+  // ponderado por volumen sobre todas las operaciones de los meses comparables
+  const totA = pond(filas.flatMap(f=>f.ra)), totB = pond(filas.flatMap(f=>f.rb));
+  const totD = (totA/totB-1)*100;
+  lead.innerHTML = `En los ${filas.length} meses comparables, ${filas[filas.length-1].k.slice(0,4)} corre <b style="color:var(--ink)">${pct(totD)}</b> sobre ${filas[0].p.slice(0,4)} — ${usd(totA)} contra ${usd(totB)} por bolsa.`;
+
+  const W = 900, mt = 30, mb = 44, ml = 46, mr = 14;
+  const Ht = 250, iw = W-ml-mr, ih = Ht-mt-mb;
+  const maxAbs = Math.max(2, Math.ceil(Math.max(...filas.map(f=>Math.abs(f.dif)))));
+  const Y = v => mt + ih/2 - v/maxAbs*(ih/2);
+  const paso = iw/filas.length, bw = Math.min(44, paso*0.56);
+  const ticks = [maxAbs, maxAbs/2, 0, -maxAbs/2, -maxAbs];
+
+  cont.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${Ht}" role="img" aria-label="Variación del precio contra el mismo mes del año anterior">
+    ${ticks.map(v=>`<line x1="${ml}" y1="${Y(v).toFixed(1)}" x2="${W-mr}" y2="${Y(v).toFixed(1)}" stroke="${v===0?"var(--axis)":"var(--grid)"}" stroke-width="1"></line>
+      <text x="${ml-8}" y="${(Y(v)+3.5).toFixed(1)}" text-anchor="end" font-size="10.5" fill="var(--muted)">${v>0?"+":""}${nf(v,0)}%</text>`).join("")}
+    ${filas.map((f,i)=>{ const cx = ml + paso*i + paso/2, pos = f.dif >= 0;
+      const y0 = pos ? Y(f.dif) : Y(0), h = Math.max(2, Math.abs(Y(f.dif)-Y(0)));
+      return `<g data-y="${i}">
+        <rect x="${(cx-paso/2).toFixed(1)}" y="${mt}" width="${paso.toFixed(1)}" height="${ih}" fill="transparent"></rect>
+        <rect x="${(cx-bw/2).toFixed(1)}" y="${y0.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="3"
+              fill="${pos?"var(--div-pos)":"var(--div-neg)"}"></rect>
+        <text x="${cx.toFixed(1)}" y="${(pos ? Y(f.dif)-7 : Y(f.dif)+14).toFixed(1)}" text-anchor="middle"
+              font-size="11" font-weight="600" fill="var(--ink)" font-family="IBM Plex Mono, monospace">${pct(f.dif)}</text>
+        <text x="${cx.toFixed(1)}" y="${Ht-24}" text-anchor="middle" font-size="10.5" fill="var(--muted)">${fMesAnio(f.k)}</text>
+        <text x="${cx.toFixed(1)}" y="${Ht-11}" text-anchor="middle" font-size="9.5" fill="var(--muted)">vs ${f.p.slice(2,4)}</text>
+      </g>`; }).join("")}
+  </svg>`;
+
+  cont.querySelectorAll("[data-y]").forEach(g => {
+    const f = filas[+g.dataset.y];
+    g.addEventListener("mousemove", e => tipOn(e,
+      `<b>${fMesAnio(f.k)}</b> contra <b>${fMesAnio(f.p)}</b><br>
+       <span class="tl">Este año</span> <b>${usd(f.a)}</b> <span class="tl">(${f.na} ops)</span><br>
+       <span class="tl">Año anterior</span> ${usd(f.b)} <span class="tl">(${f.nb} ops)</span><br>
+       <b>${pct(f.dif)}</b> <span class="tl">de variación</span>`));
+    g.addEventListener("mouseleave", tipOff);
+  });
+}
+
+/* ---------------- chart: marcas ---------------- */
+function chartMarcas(){
+  const cont = document.getElementById("chartMarcas");
+  const rs = enVentana(baseFiltro(), st.win);
+  const g = new Map();
+  rs.forEach(r => { (g.get(r.marca) ?? g.set(r.marca,[]).get(r.marca)).push(r); });
+  const volTot = rs.reduce((a,r)=>a+r.v,0);
+  const filas = [...g.entries()].map(([m,arr])=>({m, n:arr.length, p:pond(arr),
+      vol:arr.reduce((a,r)=>a+r.v,0), share:arr.reduce((a,r)=>a+r.v,0)/volTot*100}))
+    .sort((a,b)=> b.p - a.p);
+  if (!filas.length) { cont.innerHTML = `<div class="empty-state">Sin operaciones con estos filtros.</div>`; return; }
+
+  const rowH = 34, W = 560, ml = 92, mr = 108, mt = 8, mb = 24;
+  const Ht = mt + filas.length*rowH + mb, iw = W-ml-mr;
+  const hi = Math.ceil(Math.max(...filas.map(f=>f.p))/25)*25;
+  const X = v => ml + v/hi*iw;
+  const ticks = [0, hi/2, hi];
+
+  cont.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${Ht}" role="img" aria-label="Precio promedio ponderado por marca">
+    ${ticks.map(v=>`<line x1="${X(v).toFixed(1)}" y1="${mt}" x2="${X(v).toFixed(1)}" y2="${mt+filas.length*rowH}" stroke="var(--grid)" stroke-width="1"></line>
+      <text x="${X(v).toFixed(1)}" y="${Ht-8}" text-anchor="middle" font-size="10" fill="var(--muted)">${n0(v)}</text>`).join("")}
+    <text x="${ml}" y="${Ht-8}" text-anchor="middle" font-size="10" fill="var(--muted)">0</text>
+    ${filas.map((f,i)=>{ const y = mt + i*rowH + rowH/2;
+      return `<g data-m="${i}">
+        <rect x="0" y="${y-rowH/2}" width="${W}" height="${rowH}" fill="transparent"></rect>
+        <text x="${ml-9}" y="${y+1}" text-anchor="end" font-size="12" fill="var(--ink)">${esc(f.m)}</text>
+        <text x="${ml-9}" y="${y+13}" text-anchor="end" font-size="10" fill="var(--muted)">${nf(f.share,0)}% del volumen</text>
+        <rect x="${ml}" y="${y-6}" width="${Math.max(2,X(f.p)-ml).toFixed(1)}" height="12" rx="4" fill="var(--s1)"></rect>
+        <text x="${(X(f.p)+8).toFixed(1)}" y="${y+4}" font-size="12" font-weight="600" fill="var(--ink)" font-family="IBM Plex Mono, monospace">${nf(f.p,0)}</text>
+      </g>`; }).join("")}
+    <line x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt+filas.length*rowH}" stroke="var(--axis)" stroke-width="1"></line>
+  </svg>
+  <p class="note">Promedio ponderado por volumen, en US$/bolsa. ${nWin(st.win)[0].toUpperCase()+nWin(st.win).slice(1)}, ${n0(rs.length)} operaciones.</p>`;
+
+  cont.querySelectorAll("[data-m]").forEach(gEl => {
+    const f = filas[+gEl.dataset.m];
+    gEl.addEventListener("mousemove", e => tipOn(e, `<b>${esc(f.m)}</b><br><span class="tl">Precio ponderado</span> <b>${usd(f.p)}</b><br>
+      <span class="tl">Volumen</span> ${n0(f.vol)} bolsas (${nf(f.share,1)}%)<br><span class="tl">${f.n} operaciones</span>`));
+    gEl.addEventListener("mouseleave", tipOff);
+  });
+}
+
+/* ---------------- chart: heatmap zona × marca ---------------- */
+function chartHeat(){
+  const cont = document.getElementById("chartHeat");
+  const rs = enVentana(baseFiltro(), st.win);
+  const zonas = uniq(rs, r=>r.zona), marcas = uniq(rs, r=>r.marca);
+  if (!zonas.length || !marcas.length) { cont.innerHTML = `<div class="empty-state">Sin operaciones con estos filtros.</div>`; return; }
+  const cel = new Map();
+  rs.forEach(r => { const k = r.marca+"|"+r.zona; (cel.get(k) ?? cel.set(k,[]).get(k)).push(r); });
+  const vals = [...cel.values()].map(pond);
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const STEPS = ["--seq-1","--seq-2","--seq-3","--seq-4","--seq-5","--seq-6"];
+  const paso = v => hi===lo ? 2 : Math.min(5, Math.floor((v-lo)/(hi-lo)*6));
+
+  cont.innerHTML = `<div style="overflow-x:auto"><table class="hm">
+    <thead><tr><th class="rowh"></th>${zonas.map(z=>`<th>${esc(z.replace("Zona ","Z"))}</th>`).join("")}</tr></thead>
+    <tbody>${marcas.map(m=>`<tr><th class="rowh">${esc(m)}</th>${zonas.map(z=>{
+      const arr = cel.get(m+"|"+z);
+      if (!arr) return `<td><div class="cell empty">·</div></td>`;
+      const v = pond(arr), s = paso(v);
+      return `<td><div class="cell" style="background:var(${STEPS[s]}); color:${s>=3?"var(--on-seq-dark)":"var(--on-seq-light)"}"
+        data-c="${esc(m)}|${esc(z)}|${v.toFixed(1)}|${arr.length}|${arr.reduce((a,r)=>a+r.v,0)}">${nf(v,0)}</div></td>`;
+    }).join("")}</tr>`).join("")}</tbody></table></div>
+    <div class="ramp"><span>${usd(lo,0)}</span><span class="steps">${STEPS.map(s=>`<i style="background:var(${s})"></i>`).join("")}</span><span>${usd(hi,0)}</span>
+      <span style="margin-left:8px">· celda vacía = sin operaciones</span></div>`;
+
+  cont.querySelectorAll("[data-c]").forEach(el => {
+    el.addEventListener("mousemove", e => { const [m,z,v,n,vol] = el.dataset.c.split("|");
+      tipOn(e, `<b>${esc(m)}</b> · ${esc(z)}<br><span class="tl">Precio ponderado</span> <b>${usd(+v)}</b><br>
+        <span class="tl">${n} operaciones · ${n0(+vol)} bolsas</span>`); });
+    el.addEventListener("mouseleave", tipOff);
+  });
+}
+
+/* ---------------- chart: brecha contado / financiado ---------------- */
+function chartFin(){
+  const cont = document.getElementById("chartFin");
+  const rs = enVentana(H.filter(r => (!st.region || r.region===st.region) && (!st.marca || r.marca===st.marca)), st.win);
+  const g = new Map();
+  rs.forEach(r => { (g.get(r.marca) ?? g.set(r.marca,[]).get(r.marca)).push(r); });
+  const filas = [...g.entries()].map(([m,arr])=>{
+    const c = arr.filter(r=>r.cond==="Contado"), f = arr.filter(r=>r.cond==="Financiado");
+    if (c.length < 4 || f.length < 4) return null;
+    const pc = pond(c), pf = pond(f);
+    return {m, pc, pf, br:(pf/pc-1)*100, n:arr.length};
+  }).filter(Boolean).sort((a,b)=> b.br - a.br);
+  if (!filas.length) { cont.innerHTML = `<div class="empty-state">Hace falta contado y financiado en la misma marca para calcular la brecha. Sacá el filtro de condición.</div>`; return; }
+
+  const maxAbs = Math.max(4, Math.ceil(Math.max(...filas.map(f=>Math.abs(f.br)))));
+  const rowH = 30, W = 900, ml = 118, mr = 210, mt = 18, mb = 10;
+  const Ht = mt + filas.length*rowH + mb, iw = W-ml-mr, cx = ml + iw/2;
+  const X = v => cx + v/maxAbs*(iw/2);
+
+  cont.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${Ht}" role="img" aria-label="Brecha de precio entre financiado y contado por marca">
+    <text x="${cx}" y="${mt-6}" text-anchor="middle" font-size="10" fill="var(--muted)">mismo precio</text>
+    <text x="${ml+6}" y="${mt-6}" font-size="10" fill="var(--muted)">← financiado más barato</text>
+    <text x="${W-mr-6}" y="${mt-6}" text-anchor="end" font-size="10" fill="var(--muted)">financiado más caro →</text>
+    <line x1="${cx}" y1="${mt}" x2="${cx}" y2="${mt+filas.length*rowH}" stroke="var(--axis)" stroke-width="1"></line>
+    ${filas.map((f,i)=>{ const y = mt + i*rowH + rowH/2; const pos = f.br >= 0;
+      const x0 = pos ? cx : X(f.br), w = Math.max(2, Math.abs(X(f.br)-cx));
+      return `<g data-f="${i}">
+        <rect x="0" y="${y-rowH/2}" width="${W}" height="${rowH}" fill="transparent"></rect>
+        <text x="${ml-10}" y="${y+4}" text-anchor="end" font-size="12" fill="var(--ink)">${esc(f.m)}</text>
+        <rect x="${x0.toFixed(1)}" y="${y-6}" width="${w.toFixed(1)}" height="12" rx="3"
+              fill="${pos?"var(--div-pos)":"var(--div-neg)"}"></rect>
+        <text x="${(pos ? X(f.br)+8 : X(f.br)-8).toFixed(1)}" y="${y+4}" text-anchor="${pos?"start":"end"}"
+              font-size="12" font-weight="600" fill="var(--ink)" font-family="IBM Plex Mono, monospace">${pct(f.br)}</text>
+        <text x="${W-mr+16}" y="${y+4}" font-size="11" fill="var(--muted)" font-family="IBM Plex Mono, monospace">contado ${nf(f.pc,0)} · financiado ${nf(f.pf,0)}</text>
+      </g>`; }).join("")}
+  </svg>`;
+  cont.querySelectorAll("[data-f]").forEach(gEl => {
+    const f = filas[+gEl.dataset.f];
+    gEl.addEventListener("mousemove", e => tipOn(e, `<b>${esc(f.m)}</b><br><span class="tl">Contado</span> ${usd(f.pc)}<br>
+      <span class="tl">Financiado</span> ${usd(f.pf)}<br><b>${pct(f.br)}</b> <span class="tl">de brecha · ${f.n} operaciones</span>`));
+    gEl.addEventListener("mouseleave", tipOff);
+  });
+}
+
+/* ---------------- tabla: RVs ---------------- */
+function tablaRv(){
+  const rel = relevOk();
+  const porRv = new Map();
+  rel.forEach(r => { (porRv.get(r.rv) ?? porRv.set(r.rv,[]).get(r.rv)).push(r); });
+  const filas = D.rvs.map(rv => {
+    const arr = porRv.get(rv.rv) || [];
+    const difs = arr.map(r=>r.dif).filter(d=>d!=null);
+    return {...rv, n:arr.length, ult: arr.length ? arr.map(r=>r.d).sort().pop() : null,
+      prom: arr.length ? arr.reduce((a,r)=>a+r.p,0)/arr.length : null,
+      dif: difs.length ? difs.reduce((a,b)=>a+b,0)/difs.length : null,
+      rojas: arr.filter(r=>r.senal==="desvio").length};
+  });
+  porRv.forEach((arr, nombre) => { if (!filas.some(f=>f.rv===nombre)) {
+    const difs = arr.map(r=>r.dif).filter(d=>d!=null);
+    filas.push({rv:nombre, zona:arr[0].zona, email:"—", fuera:true, n:arr.length,
+      ult:arr.map(r=>r.d).sort().pop(), prom:arr.reduce((a,r)=>a+r.p,0)/arr.length,
+      dif: difs.length ? difs.reduce((a,b)=>a+b,0)/difs.length : null,
+      rojas:arr.filter(r=>r.senal==="desvio").length}); } });
+  filas.sort((a,b)=> b.n - a.n || a.rv.localeCompare(b.rv));
+  const maxN = Math.max(1, ...filas.map(f=>f.n));
+
+  document.getElementById("tblRv").innerHTML = `
+    <thead><tr><th>Representante</th><th>Zona</th><th>Relevamientos</th><th>Último</th>
+      <th class="r">Precio medio informado</th><th class="r">Desvío medio vs. mercado</th><th>Fuera de línea</th></tr></thead>
+    <tbody>${filas.map(f=>`<tr>
+      <td class="nowrap">${esc(f.rv)}${f.fuera?` <span class="dim" title="No figura en MAESTRO_RV">· fuera del maestro</span>`:""}</td>
+      <td class="dim nowrap">${esc(f.zona||"—")}</td>
+      <td><span class="cargas"><b>${f.n}</b>${f.n?`<i style="width:${Math.max(4,f.n/maxN*54).toFixed(0)}px"></i>`:""}</span></td>
+      <td class="dim nowrap">${f.ult ? fFecha(f.ult) : "sin cargas"}</td>
+      <td class="r mono">${f.prom!=null ? usd(f.prom) : "—"}</td>
+      <td class="r mono" style="color:${f.dif==null?"var(--muted)":Math.abs(f.dif)>7?"var(--crit)":"var(--ink)"}">${f.dif!=null?pct(f.dif):"—"}</td>
+      <td>${f.rojas ? `<span class="sig desvio"><i></i>${f.rojas}</span>` : `<span class="dim">—</span>`}</td>
+    </tr>`).join("")}</tbody>`;
+
+  const sinCargar = filas.filter(f=>!f.n).map(f=>f.rv);
+  const zonasCubiertas = new Set(rel.map(r=>r.zona));
+  const zonasMercado = uniq(H, r=>r.zona);
+  const zonasSin = zonasMercado.filter(z=>!zonasCubiertas.has(z));
+  document.getElementById("notaCobertura").innerHTML =
+    `<b>Cobertura.</b> El equipo relevó ${zonasCubiertas.size} de las ${zonasMercado.length} zonas donde hay mercado` +
+    (zonasSin.length ? ` — falta ${zonasSin.join(", ")}` : "") + ". " +
+    (sinCargar.length ? `Todavía no cargaron: ${sinCargar.join(", ")}.` : "Todos los RV del maestro ya cargaron al menos un relevamiento.");
+}
+
+/* ---------------- tabla: relevamientos ---------------- */
+const ETIQ = {alineado:"En línea", atencion:"Atención", desvio:"Desvío relevante",
+              sin_datos:"Sin comparables", invalido:"Dato inválido"};
+function tablaRelev(){
+  const rel = relevFiltro().slice().sort((a,b)=> a.ts < b.ts ? 1 : -1);
+  const t = document.getElementById("tblRelev");
+  if (!rel.length) { t.innerHTML = `<tbody><tr><td class="empty-state">Ningún relevamiento con estos filtros.</td></tr></tbody>`; return; }
+  t.innerHTML = `
+    <thead><tr><th>Fecha</th><th>RV / zona</th><th>Híbrido</th><th>Cond.</th>
+      <th class="r">Relevado</th><th class="r">Referencia</th><th class="r">Desvío</th><th>Comp.</th><th>Señal</th><th></th></tr></thead>
+    <tbody>${rel.map((r,i)=>`
+      <tr class="${r.ok?"":"invalida"}">
+        <td class="dim nowrap">${fFecha(r.d)}</td>
+        <td class="nowrap">${esc(r.rv)}<br><span class="dim" style="font-size:11px">${esc(r.zona)} · ${esc(r.region.replace("Región ",""))}</span></td>
+        <td class="nowrap"><span class="sku">${esc(r.hibrido)}</span><br><span class="dim" style="font-size:11px">${esc(r.marca)}</span></td>
+        <td class="dim nowrap">${esc(r.cond)}</td>
+        <td class="r mono" style="font-weight:600">${usd(r.p)}</td>
+        <td class="r mono dim">${r.med!=null?usd(r.med):(r.ok?"—":"fuera de rango")}</td>
+        <td class="r mono" style="color:${r.dif==null?"var(--muted)":Math.abs(r.dif)>7?"var(--crit)":Math.abs(r.dif)>3?"var(--ink)":"var(--good)"}; font-weight:600">${r.dif!=null?pct(r.dif):"—"}</td>
+        <td class="num" title="${esc(r.criterio)}">${r.n}</td>
+        <td><span class="sig ${r.senal}"><i></i>${ETIQ[r.senal]}</span></td>
+        <td>${r.interp ? `<button class="expand" data-i="${i}" aria-expanded="false">Lectura IA</button>` : `<span class="dim" style="font-size:11px">${r.ok?"sin texto":"no se analiza"}</span>`}</td>
+      </tr>
+      ${r.interp ? `<tr class="exp-row" id="exp-${i}" hidden><td colspan="10"><div class="exp-in">
+        <b>Interpretación generada para este negocio</b><br>${esc(r.interp)}</div></td></tr>` : ""}
+    `).join("")}</tbody>`;
+  t.querySelectorAll(".expand").forEach(b => b.onclick = () => {
+    const row = document.getElementById("exp-" + b.dataset.i);
+    const abierto = !row.hidden; row.hidden = abierto;
+    b.setAttribute("aria-expanded", String(!abierto));
+    b.textContent = abierto ? "Lectura IA" : "Ocultar";
+  });
+
+  const conCascada = rel.filter(r => r.ok && r.niveles[0] === 0 && r.n > 0).length;
+  document.getElementById("notaCriterio").innerHTML =
+    `<b>Cómo se compara.</b> Primero se busca el mismo híbrido en la misma región, zona y condición, dentro de los 30 días previos. ` +
+    `Si eso no devuelve ni un antecedente, se afloja el criterio: primero se sale de la zona, después de la región y por último se compara sólo por híbrido. ` +
+    `La columna <b>Comp.</b> dice cuántos antecedentes entraron; pasá el mouse para ver con qué criterio. ` +
+    (conCascada ? `Hoy ${conCascada} de ${rel.length} relevamientos necesitaron aflojar el criterio.` : "");
+}
+
+/* ---------------- alertas + meta ---------------- */
+function pintarFijos(){
+  const ICO = {critical:"!!", serious:"!", warning:"?"};
+  document.getElementById("alertas").innerHTML = D.alertas.length
+    ? D.alertas.map(a=>`<div class="alert ${a.nivel}"><span class="ic">${ICO[a.nivel]||"?"}</span>
+        <div><h3>${esc(a.titulo)}</h3><p>${esc(a.detalle)}</p></div></div>`).join("")
+    : `<div class="card"><p class="dim" style="margin:0">Sin observaciones: el sheet pasó todos los chequeos.</p></div>`;
+  document.getElementById("headMeta").innerHTML =
+    `<b>${D.meta.n_hist.toLocaleString("es-AR")}</b> operaciones de histórico<br>
+     <b>${D.meta.n_relev}</b> relevamientos · <b>${D.meta.n_hibridos}</b> híbridos · <b>${D.meta.n_rv}</b> RV<br>
+     Actualizado el <b>${esc(D.meta.generado)}</b>`;
+  document.getElementById("footMeta").textContent =
+    `Histórico del ${fFecha(D.meta.hist_desde)} al ${fFecha(D.meta.hist_hasta)} · datos leídos el ${D.meta.generado}`;
+  document.getElementById("lnkSheet").href = D.meta.sheet;
+}
+
+/* ---------------- render ---------------- */
+function render(){
+  pintarFiltros(); pintarKpis(); chartEvo(); chartYoY(); chartDisp(); chartMarcas(); chartHeat(); chartFin(); tablaRv(); tablaRelev();
+}
+pintarFijos(); render();
+</script>
