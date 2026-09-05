@@ -90,8 +90,10 @@ section{margin-top:30px}
 .shead{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:12px}
 h2{font-size:16.5px; font-weight:600; letter-spacing:-.012em}
 .shead p{margin:0; color:var(--muted); font-size:12.5px; max-width:62ch}
+.shead .pills{margin-left:auto}
+.pills.mini .pill{font-size:11.5px; padding:3px 9px}
 .card{background:var(--surface); border:1px solid var(--hair); border-radius:9px; padding:16px 18px; box-shadow:var(--shadow)}
-.grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start}
 .grid2>*{min-width:0}
 .card>div{min-width:0}
 @media (max-width:900px){.grid2{grid-template-columns:1fr}}
@@ -162,6 +164,7 @@ button.expand:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
 .ramp .steps i{width:24px; height:9px; display:block}
 .hm{border-collapse:separate; border-spacing:2px; min-width:560px}
 .hm th{background:none; border:0; padding:4px 6px}
+.hm th.rowh.cod{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:-.01em}
 .hm th.rowh{text-align:right; font-family:"IBM Plex Sans",sans-serif; font-size:12px; text-transform:none; letter-spacing:0; color:var(--ink-2); font-weight:500; white-space:nowrap}
 .hm td{border:0; padding:0}
 .hm .cell{border-radius:4px; padding:9px 4px; text-align:center; font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-variant-numeric:tabular-nums; cursor:default}
@@ -226,7 +229,13 @@ footer{margin-top:40px; padding-top:18px; border-top:1px solid var(--hair); font
       <div class="card"><div id="chartMarcas"></div></div>
     </section>
     <section style="margin-top:30px">
-      <div class="shead"><h2>Zona por marca</h2></div>
+      <div class="shead">
+        <h2 id="heatTit">Zona por marca</h2>
+        <div class="pills mini" id="heatDim" role="group" aria-label="Abrir el mapa por marca o por híbrido">
+          <button class="pill" data-dim="marca">Marca</button>
+          <button class="pill" data-dim="hibrido">Híbrido</button>
+        </div>
+      </div>
       <div class="card"><div id="chartHeat"></div></div>
     </section>
   </div>
@@ -303,7 +312,7 @@ const uniq = (arr, k) => [...new Set(arr.map(k))].sort();
 const nWin = w => w === "todo" ? "toda la serie" : w === 365 ? "últimos 12 meses" : "últimos " + w + " días";
 
 /* ---------------- estado ---------------- */
-const st = {region:"", marca:"", cond:"", win:30};
+const st = {region:"", marca:"", cond:"", win:30, heatDim:"marca"};
 const baseFiltro = () => H.filter(r =>
   (!st.region || r.region===st.region) && (!st.marca || r.marca===st.marca) && (!st.cond || r.cond===st.cond));
 const enVentana = (rs, win, hasta=HOY) => win==="todo" ? rs
@@ -677,35 +686,53 @@ function chartMarcas(){
   });
 }
 
-/* ---------------- chart: heatmap zona × marca ---------------- */
+/* ---------------- chart: heatmap zona × marca o híbrido ---------------- */
 function chartHeat(){
   const cont = document.getElementById("chartHeat");
+  const porHib = st.heatDim === "hibrido";
+  document.getElementById("heatTit").textContent = porHib ? "Zona por híbrido" : "Zona por marca";
+  document.querySelectorAll("#heatDim .pill").forEach(b =>
+    b.setAttribute("aria-pressed", String(b.dataset.dim === st.heatDim)));
+
   const rs = enVentana(baseFiltro(), st.win);
-  const zonas = uniq(rs, r=>r.zona), marcas = uniq(rs, r=>r.marca);
-  if (!zonas.length || !marcas.length) { cont.innerHTML = `<div class="empty-state">Sin operaciones con estos filtros.</div>`; return; }
+  const zonas = uniq(rs, r=>r.zona);
+  if (!zonas.length || !rs.length) { cont.innerHTML = `<div class="empty-state">Sin operaciones con estos filtros.</div>`; return; }
+
+  const marcaDe = new Map();
+  rs.forEach(r => { if (!marcaDe.has(r.hibrido)) marcaDe.set(r.hibrido, r.marca); });
+  const filas = porHib
+    ? [...marcaDe.keys()].sort((a,b) => marcaDe.get(a).localeCompare(marcaDe.get(b)) || a.localeCompare(b))
+    : uniq(rs, r=>r.marca);
+
   const cel = new Map();
-  rs.forEach(r => { const k = r.marca+"|"+r.zona; (cel.get(k) ?? cel.set(k,[]).get(k)).push(r); });
+  rs.forEach(r => { const k = (porHib ? r.hibrido : r.marca) + "|" + r.zona;
+    (cel.get(k) ?? cel.set(k,[]).get(k)).push(r); });
+
   const vals = [...cel.values()].map(pond);
   const lo = Math.min(...vals), hi = Math.max(...vals);
   const STEPS = ["--seq-1","--seq-2","--seq-3","--seq-4","--seq-5","--seq-6"];
   const paso = v => hi===lo ? 2 : Math.min(5, Math.floor((v-lo)/(hi-lo)*6));
+  const vacias = filas.length*zonas.length - cel.size;
 
   cont.innerHTML = `<div style="overflow-x:auto"><table class="hm">
     <thead><tr><th class="rowh"></th>${zonas.map(z=>`<th>${esc(z.replace("Zona ","Z"))}</th>`).join("")}</tr></thead>
-    <tbody>${marcas.map(m=>`<tr><th class="rowh">${esc(m)}</th>${zonas.map(z=>{
-      const arr = cel.get(m+"|"+z);
+    <tbody>${filas.map(f=>`<tr><th class="rowh${porHib?" cod":""}" title="${esc(porHib ? marcaDe.get(f) : f)}">${esc(f)}</th>${zonas.map(z=>{
+      const arr = cel.get(f+"|"+z);
       if (!arr) return `<td><div class="cell empty">·</div></td>`;
-      const v = pond(arr), s = paso(v);
-      return `<td><div class="cell" style="background:var(${STEPS[s]}); color:${s>=3?"var(--on-seq-dark)":"var(--on-seq-light)"}"
-        data-c="${esc(m)}|${esc(z)}|${v.toFixed(1)}|${arr.length}|${arr.reduce((a,r)=>a+r.v,0)}">${nf(v,0)}</div></td>`;
+      const v = pond(arr), st2 = paso(v);
+      return `<td><div class="cell" style="background:var(${STEPS[st2]}); color:${st2>=3?"var(--on-seq-dark)":"var(--on-seq-light)"}"
+        data-c="${esc(f)}|${esc(z)}|${v.toFixed(1)}|${arr.length}|${arr.reduce((a,r)=>a+r.v,0)}|${esc(porHib?marcaDe.get(f):"")}">${nf(v,0)}</div></td>`;
     }).join("")}</tr>`).join("")}</tbody></table></div>
-    <div class="ramp"><span>${usd(lo,0)}</span><span class="steps">${STEPS.map(s=>`<i style="background:var(${s})"></i>`).join("")}</span><span>${usd(hi,0)}</span>
-      <span style="margin-left:8px">· celda vacía = sin operaciones</span></div>`;
+    <div class="ramp"><span>${usd(lo,0)}</span><span class="steps">${STEPS.map(x=>`<i style="background:var(${x})"></i>`).join("")}</span><span>${usd(hi,0)}</span></div>
+    <p class="note">Precio ponderado por volumen. ${nWin(st.win)[0].toUpperCase()+nWin(st.win).slice(1)}, ${n0(rs.length)} operaciones.${
+      vacias ? ` ${vacias} de ${filas.length*zonas.length} cruces sin operaciones (celda con punto).` : ""}${
+      porHib ? " Los códigos están agrupados por marca; pasá el mouse para verla." : ""}</p>`;
 
   cont.querySelectorAll("[data-c]").forEach(el => {
-    el.addEventListener("mousemove", e => { const [m,z,v,n,vol] = el.dataset.c.split("|");
-      tipOn(e, `<b>${esc(m)}</b> · ${esc(z)}<br><span class="tl">Precio ponderado</span> <b>${usd(+v)}</b><br>
-        <span class="tl">${n} operaciones · ${n0(+vol)} bolsas</span>`); });
+    el.addEventListener("mousemove", e => { const [f,z,v,n,vol,mk] = el.dataset.c.split("|");
+      tipOn(e, `<b>${esc(f)}</b>${mk?` <span class="tl">${esc(mk)}</span>`:""} · ${esc(z)}<br>
+        <span class="tl">Precio ponderado</span> <b>${usd(+v)}</b><br>
+        <span class="tl">${n} ${+n===1?"operación":"operaciones"} · ${n0(+vol)} bolsas</span>`); });
     el.addEventListener("mouseleave", tipOff);
   });
 }
@@ -854,6 +881,8 @@ function pintarFijos(){
   document.getElementById("footMeta").textContent =
     `Histórico del ${fFecha(D.meta.hist_desde)} al ${fFecha(D.meta.hist_hasta)} · datos leídos el ${D.meta.generado}`;
   document.getElementById("lnkSheet").href = D.meta.sheet;
+  document.querySelectorAll("#heatDim .pill").forEach(b =>
+    b.onclick = () => { st.heatDim = b.dataset.dim; chartHeat(); });
 }
 
 /* ---------------- render ---------------- */
