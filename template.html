@@ -97,17 +97,24 @@ input[type="date"]:focus-visible{outline:2px solid var(--accent); outline-offset
 .hm-row{display:flex; align-items:flex-start; gap:12px; justify-content:flex-end}
 .campana-wrap{position:relative; flex-shrink:0}
 .campana{position:relative; width:34px; height:34px; border-radius:8px; cursor:pointer;
-  background:var(--surface-2); border:1px solid var(--hair); color:var(--ink-2);
-  display:none; align-items:center; justify-content:center; padding:0}
-.campana.viva{display:inline-flex}
+  background:var(--surface-2); border:1px solid var(--hair); color:var(--muted);
+  display:inline-flex; align-items:center; justify-content:center; padding:0;
+  transition:color .18s, border-color .18s, background .18s}
 .campana:hover{border-color:var(--accent); color:var(--accent)}
 .campana:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.campana.encendida{color:var(--crit); border-color:var(--crit); background:rgba(208,59,59,.09)}
+.campana.encendida:hover{border-color:var(--crit); color:var(--crit)}
 .globo{position:absolute; top:-7px; right:-7px; min-width:19px; height:19px; padding:0 5px;
   border-radius:999px; background:var(--crit); color:#fff; font-size:11px; font-weight:600;
-  display:flex; align-items:center; justify-content:center; border:2px solid var(--surface);
+  display:none; align-items:center; justify-content:center; border:2px solid var(--surface);
   font-variant-numeric:tabular-nums; line-height:1}
+.campana.encendida .globo{display:flex}
 .globo.punto{min-width:11px; height:11px; padding:0; top:-3px; right:-3px; font-size:0}
+@keyframes latido{0%,100%{transform:scale(1)} 50%{transform:scale(1.22)}}
+.globo.late{animation:latido 1.5s ease-in-out 3}
+@media (prefers-reduced-motion:reduce){.globo.late{animation:none}}
 .panel{position:absolute; right:0; top:41px; z-index:70; width:300px; text-align:left;
+  max-width:calc(100vw - 28px);
   background:var(--surface); border:1px solid var(--hair); border-radius:9px;
   box-shadow:0 12px 32px rgba(0,0,0,.18); padding:13px 15px 14px}
 .panel h3{font-family:"IBM Plex Sans",sans-serif; font-size:13px; font-weight:600; margin-bottom:9px; color:var(--ink)}
@@ -122,6 +129,9 @@ input[type="date"]:focus-visible{outline:2px solid var(--accent); outline-offset
 :root[data-theme="dark"] .panel .act, :root:not([data-theme="light"]) .panel .act{color:#0d0f0c}
 .panel .act:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
 .panel .pie{font-size:11px; color:var(--muted); margin:8px 0 0}
+/* Cuando el encabezado envuelve, la campana queda hacia la izquierda: el panel
+   se ancla del otro lado para no salirse del viewport. */
+@media (max-width:900px){ .panel{right:auto; left:0} }
 .aviso{display:flex; gap:11px; align-items:flex-start; padding:11px 14px; border-radius:8px;
   border:1px solid var(--hair); border-left:3px solid var(--warn); background:var(--surface); margin-bottom:18px}
 .aviso.ok{border-left-color:var(--good)}
@@ -997,33 +1007,39 @@ function render(){
 }
 pintarFijos(); render();
 
-/* ---------------- novedades y auto-refresco ----------------
-   GitHub Pages cachea 10 minutos, asi que una pestaña abierta no se enteraria de
-   una publicacion nueva. Cada 3 minutos se consulta un version.json de unos
-   cientos de bytes. Si nadie toco la pagina se recarga sola (caso pantalla
-   proyectada); si el usuario venia trabajando no se le pisa el estado: aparece
-   la campanita con la cuenta ACUMULADA de relevamientos nuevos desde que abrio.
-   Fuera de un hosting http (artifact, archivo local) no hace nada. */
-let tocada = false;
+/* ---------------- novedades ----------------
+   La campanita esta siempre en el encabezado: apagada mientras estas viendo los
+   ultimos datos, encendida cuando el sheet trajo algo nuevo. Nunca se recarga
+   sola: pisarle los filtros o la fecha a quien esta trabajando es peor que
+   esperar un clic. Cada 3 minutos se consulta un version.json de unos cientos de
+   bytes y el globo lleva la cuenta ACUMULADA de relevamientos nuevos desde que
+   abriste. Fuera de un hosting http (artifact, archivo local) no chequea nada. */
 const baseN = D.meta.n_relev;
-
-["click","keydown"].forEach(ev => document.addEventListener(ev, e => {
-  if (e.target.closest("#filtros, #heatDim, button, select, input, a")) tocada = true;
-}, true));
-addEventListener("scroll", () => { if (scrollY > 150) tocada = true; }, {passive:true});
-
 const campana = document.getElementById("campana");
 const globo = document.getElementById("globo");
 const panel = document.getElementById("panelNov");
+let ultimaCuenta = -1;
+
+function panelAlDia(){
+  panel.innerHTML = `<h3>Estás viendo los últimos datos</h3>
+    <p class="pie">Sheet leído el ${esc(D.meta.generado)}. Se chequea cada 3 minutos.</p>`;
+}
 
 function pintarNovedades(v){
   const nuevos = Math.max(0, (v.n_relev ?? baseN) - baseN);
-  campana.classList.add("viva");
+  campana.classList.add("encendida");
   globo.classList.toggle("punto", nuevos === 0);
   globo.textContent = nuevos > 0 ? (nuevos > 99 ? "99+" : String(nuevos)) : "";
   campana.setAttribute("aria-label", nuevos > 0
     ? `${nuevos} relevamiento${nuevos===1?"":"s"} nuevo${nuevos===1?"":"s"}`
     : "Los datos del mercado se actualizaron");
+
+  if (nuevos !== ultimaCuenta) {          // late solo cuando la cuenta cambia
+    ultimaCuenta = nuevos;
+    globo.classList.remove("late");
+    void globo.offsetWidth;
+    globo.classList.add("late");
+  }
 
   const lista = (v.ultimos || []).slice(0, Math.min(nuevos, 6));
   panel.innerHTML = `
@@ -1039,10 +1055,13 @@ function pintarNovedades(v){
   panel.querySelector("#actualizar").onclick = () => location.reload();
 }
 
+panelAlDia();
+
 campana.onclick = () => {
   const abierto = !panel.hidden;
   panel.hidden = abierto;
   campana.setAttribute("aria-expanded", String(!abierto));
+  globo.classList.remove("late");
 };
 document.addEventListener("click", e => {
   if (!panel.hidden && !e.target.closest(".campana-wrap")) {
@@ -1062,17 +1081,6 @@ if (location.protocol === "http:" || location.protocol === "https:") {
       if (!r.ok) return;
       const v = await r.json();
       if (!v.generado || v.generado === D.meta.generado_iso) return;
-      if (!tocada) {
-        // Recargar una sola vez por version: si el CDN todavia sirve el HTML viejo,
-        // la recarga no cambia nada y sin este guardia entrariamos en un loop.
-        let yaProbe = null;
-        try { yaProbe = sessionStorage.getItem("radar_recarga"); } catch (e) {}
-        if (yaProbe !== v.generado) {
-          try { sessionStorage.setItem("radar_recarga", v.generado); } catch (e) {}
-          location.reload();
-          return;
-        }
-      }
       pintarNovedades(v);
     } catch (e) { /* sin red o sin ese archivo: se reintenta en el proximo ciclo */ }
   }, 180000);
