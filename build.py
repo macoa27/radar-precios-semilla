@@ -273,6 +273,9 @@ html = html.replace("/*__DATOS__*/null", json.dumps(payload, ensure_ascii=False,
 with open(os.path.join(BASE, "dashboard.html"), "w", encoding="utf-8") as f:
     f.write(html)
 
+with open(os.path.join(BASE, "version.json"), "w", encoding="utf-8") as f:
+    json.dump({"generado": payload["meta"]["generado_iso"]}, f)
+
 with open(HUELLA, "w", encoding="utf-8") as f:
     f.write(huella + "\n" + datetime.datetime.now().isoformat(timespec="seconds") + "\n")
 

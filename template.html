@@ -951,4 +951,20 @@ function render(){
   tablaRv(); tablaRelev();
 }
 pintarFijos(); render();
+
+/* ---------------- auto-refresco ----------------
+   GitHub Pages cachea 10 minutos, asi que una pestaña abierta no se enteraria
+   de una publicacion nueva. Cada 3 minutos se consulta un version.json de unos
+   pocos bytes y solo se recarga si el sello de generacion cambio. Fuera de un
+   hosting http (artifact, archivo local) no hace nada. */
+if (location.protocol === "http:" || location.protocol === "https:") {
+  setInterval(async () => {
+    try {
+      const r = await fetch("version.json?_=" + Date.now(), {cache: "no-store"});
+      if (!r.ok) return;
+      const v = await r.json();
+      if (v.generado && v.generado !== D.meta.generado_iso) location.reload();
+    } catch (e) { /* sin red o sin ese archivo: se reintenta en el proximo ciclo */ }
+  }, 180000);
+}
 </script>

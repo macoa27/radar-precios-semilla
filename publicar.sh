@@ -30,6 +30,7 @@ if ! git remote get-url origin >/dev/null 2>&1; then
 fi
 
 cp dashboard.html docs/index.html
+cp version.json docs/version.json
 git add -A docs
 if git diff --cached --quiet; then
   log "el sheet cambio pero el dashboard quedo igual, no publico"
