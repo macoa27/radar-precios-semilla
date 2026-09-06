@@ -39,9 +39,21 @@ de macOS para actualizar a mano. Cuando no hay cambios termina en silencio.
 
 Para que corra sola cada 2 minutos:
 
-    launchctl load -w "$PWD/com.martintornimbeni.radar-precios.plist"
+    ./instalar-watcher.sh
 
-El log queda en `~/Library/Logs/radar-precios.log`.
+El script copia el `.plist` a `~/Library/LaunchAgents` y lo arranca. **Ese paso no
+es opcional**: cargando el plist desde la carpeta del proyecto funciona hasta el
+siguiente reinicio, y despues launchd no lo levanta porque solo busca en los
+directorios estandar. El log queda en `~/Library/Logs/radar-precios.log`.
+
+Para sacarlo:
+
+    launchctl bootout gui/$(id -u)/com.martintornimbeni.radar-precios
+    rm ~/Library/LaunchAgents/com.martintornimbeni.radar-precios.plist
+
+Si el sheet no responde (corte de red), `build.py` falla, lo deja anotado en el
+log y **no publica nada**: prefiere datos viejos a datos rotos. El siguiente
+ciclo reintenta.
 
 ## Archivos
 
